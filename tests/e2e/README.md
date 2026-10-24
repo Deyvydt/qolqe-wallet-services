@@ -12,6 +12,7 @@ Cubre **HU-G2-01** (consultar deuda) y **HU-G2-02** (pagar deuda, CA1 y CA4).
 tests/e2e/
 ├── pago_servicios.robot        ¿QUÉ se prueba? Caso en estilo Given/When/Then
 ├── afiliacion_ia.robot         Caso generado con IA (HU-G2-03) y revisado por el equipo
+├── pago_agua_ia.robot          Caso generado EN VIVO con Claude Code + rf-mcp y refactorizado
 ├── pages/
 │   ├── LoginPage.resource      ¿CÓMO se usa /login?    (localizadores + acciones)
 │   └── ServiciosPage.resource  ¿CÓMO se usa /servicios?
@@ -53,7 +54,7 @@ robot --outputdir results -v HEADLESS:False tests/e2e       # viendo el navegado
 robot --outputdir results -v HEADLESS:False -v SLOWMO:1s tests/e2e   # demo en cámara lenta
 ```
 
-Resultado esperado: `2 tests, 2 passed, 0 failed`.
+Resultado esperado: `3 tests, 3 passed, 0 failed`.
 
 > **Windows / terminal de VS Code:** si Robot falla con `RecursionError` o `LookupError: unknown encoding: utf-8:surrogateescape`, es porque VS Code define `PYTHONIOENCODING=utf-8:surrogateescape`. Antes de correr `robot`, ejecuta en PowerShell:
 >
