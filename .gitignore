@@ -6,3 +6,9 @@ datos/
 .coverage
 htmlcov/
 reportes/
+
+# Robot Framework
+results/
+output.xml
+log.html
+report.html
