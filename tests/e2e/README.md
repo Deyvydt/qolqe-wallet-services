@@ -50,6 +50,7 @@ uvicorn qolqe.main:app
 ```bash
 robot --outputdir results tests/e2e                         # sin ventana (headless)
 robot --outputdir results -v HEADLESS:False tests/e2e       # viendo el navegador (demo)
+robot --outputdir results -v HEADLESS:False -v SLOWMO:1s tests/e2e   # demo en cámara lenta
 ```
 
 Resultado esperado: `2 tests, 2 passed, 0 failed`.
@@ -73,8 +74,8 @@ Lo que corregimos: la primera versión era **frágil** (fallaba a veces) porque 
 | Archivo | Qué contiene |
 |---|---|
 | `results/report.html` | Resumen: qué pasó y qué falló |
-| `results/log.html` | Cada keyword paso a paso, con la captura final |
-| `results/browser/screenshot/` | Captura de la pantalla al terminar |
+| `results/log.html` | Cada keyword paso a paso, con la captura final (dentro de cada TEST → Teardown → `Take Screenshot`) |
+| `results/browser/screenshot/` | Captura de la pantalla al terminar (un `.png` por prueba) |
 | `results/browser/traces/` | Traza Playwright (solo si falla): `npx playwright show-trace <archivo.zip>` |
 
 ## Decisiones de diseño

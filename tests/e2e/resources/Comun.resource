@@ -7,13 +7,15 @@ Library           Browser
 ${URL}         http://localhost:8000
 ${BROWSER}     chromium
 ${HEADLESS}    True
+# Pausa entre cada acción del navegador. Para la demo: -v SLOWMO:1s
+${SLOWMO}      0s
 
 
 *** Keywords ***
 Abrir Navegador Con Datos Limpios
     [Documentation]    Fixture de PREPARACIÓN: abre el navegador y reinicia los datos semilla
     ...                de Qolqe por API (así cada prueba es independiente: FIRST).
-    New Browser    ${BROWSER}    headless=${HEADLESS}
+    New Browser    ${BROWSER}    headless=${HEADLESS}    slowMo=${SLOWMO}
     New Context    viewport={'width': 1280, 'height': 800}    tracing=retain-on-failure
     Set Browser Timeout    10s
     New Page       ${URL}/login
