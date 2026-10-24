@@ -54,6 +54,12 @@ robot --outputdir results -v HEADLESS:False tests/e2e       # viendo el navegado
 
 Resultado esperado: `2 tests, 2 passed, 0 failed`.
 
+> **Windows / terminal de VS Code:** si Robot falla con `RecursionError` o `LookupError: unknown encoding: utf-8:surrogateescape`, es porque VS Code define `PYTHONIOENCODING=utf-8:surrogateescape`. Antes de correr `robot`, ejecuta en PowerShell:
+>
+> ```powershell
+> $env:PYTHONIOENCODING='utf-8'
+> ```
+
 ## Capacidad de IA
 
 `afiliacion_ia.robot` se generó con un asistente de IA a partir de este pedido:
