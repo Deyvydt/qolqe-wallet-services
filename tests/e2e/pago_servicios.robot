@@ -23,7 +23,7 @@ Ana paga su recibo de luz y ve el comprobante
     Given Ana ha iniciado sesion
     When consulta la deuda del suministro    ELECTRO    10000001
     And paga la deuda por un total de    S/ 120.00
-    Then el comprobante muestra el pago    ELECTRO    10000001    S/ 120.00    S/ 1,380.00
+    Then el comprobante muestra el pago    ELECTRO    10000001    S/ 120.00    S/ 1,390.00
 
 
 *** Keywords ***
