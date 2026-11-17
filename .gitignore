@@ -17,3 +17,7 @@ report.html
 .mcp.json
 .robotmcp_artifacts/
 .schemathesis/
+
+# Parte 3: salidas de prueba rápida/demo (se regeneran en vivo)
+tests/performance/resultados/humo/
+tests/performance/resultados/demo/

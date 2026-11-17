@@ -1,0 +1,95 @@
+{
+  "escenario": "pico",
+  "inicio": "2026-11-13 19:27:24",
+  "fin": "2026-11-13 19:43:54",
+  "usuarios_preparados": 300,
+  "umbrales_k6_cumplidos": true,
+  "etapas": {
+    "rampa": {
+      "peticiones": 3794,
+      "duracion_s": 299,
+      "rps": 12.69,
+      "sesiones_por_hora": 6959,
+      "p95_consulta_ms": 95.7,
+      "p95_dinero_ms": 120.0,
+      "p99_consulta_ms": 102.0,
+      "p99_dinero_ms": 124.0,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "estable": {
+      "peticiones": 15448,
+      "duracion_s": 600,
+      "rps": 25.75,
+      "sesiones_por_hora": 10194,
+      "p95_consulta_ms": 94.1,
+      "p95_dinero_ms": 120.1,
+      "p99_consulta_ms": 100.1,
+      "p99_dinero_ms": 127.5,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "bajada": {
+      "peticiones": 1426,
+      "duracion_s": 88,
+      "rps": 16.2,
+      "sesiones_por_hora": 3805,
+      "p95_consulta_ms": 90.7,
+      "p95_dinero_ms": 118.3,
+      "p99_consulta_ms": 100.1,
+      "p99_dinero_ms": 123.8,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "_por_operacion_p95_ms": {
+      "consultar_deudas": 10.2,
+      "contactos": 9.9,
+      "login": 104.5,
+      "movimientos": 25.8,
+      "otras": 9.9,
+      "pagar_servicio": 6.9,
+      "perfil": 5.0,
+      "recargar": 10.6,
+      "saldo": 9.7,
+      "transferir": 123.3
+    }
+  },
+  "recursos": {
+    "qolqe_cpu_%": {
+      "max": 107.8,
+      "prom": 31.3
+    },
+    "qolqe_mem_MB": {
+      "max": 136.2,
+      "prom": 100.1,
+      "inicio": 86.2,
+      "fin": 79.3
+    },
+    "k6_cpu_%": {
+      "max": 42.2,
+      "prom": 3.9
+    },
+    "k6_mem_MB": {
+      "max": 168.6,
+      "prom": 146.8
+    },
+    "total_cpu_%": {
+      "max": 47.4,
+      "prom": 12.3
+    }
+  },
+  "integridad_dinero": {
+    "usuarios_revisados": 300,
+    "movimientos_nuevos_por_tipo": {
+      "PAGO_SERVICIO": 523,
+      "RECARGA": 1356,
+      "TRANSFERENCIA_ENVIADA": 1983,
+      "TRANSFERENCIA_RECIBIDA": 1983
+    },
+    "transferencias_completas": true,
+    "usuarios_con_descuadre": {},
+    "codigos_repetidos": [],
+    "deudas_pagadas_dos_veces": [],
+    "ok": true
+  }
+}

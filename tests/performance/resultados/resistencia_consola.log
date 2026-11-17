@@ -1,0 +1,133 @@
+
+
+  █ THRESHOLDS 
+
+    error_tecnico
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_duration{tipo:consulta,etapa:estable}
+    ✓ 'p(95)<800' p(95)=91.59ms
+
+    http_req_duration{tipo:dinero,etapa:estable}
+    ✓ 'p(95)<1500' p(95)=120.11ms
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 16452   8.185072/s
+    checks_succeeded...: 100.00% 16452 out of 16452
+    checks_failed......: 0.00%   0 out of 16452
+
+    ✓ login 2xx
+    ✓ saldo 2xx
+    ✓ perfil 2xx
+    ✓ movimientos 2xx
+    ✓ consultar_deudas 2xx
+    ✓ contactos 2xx
+    ✓ transferir 2xx
+    ✓ recargar 2xx
+    ✓ pagar_servicio 2xx
+    ✓ otras 2xx
+
+    CUSTOM
+    error_tecnico.......................: 0.00%  0 out of 16452
+
+    HTTP
+    http_req_duration...................: avg=24.46ms med=4.63ms  p(90)=90.36ms  p(95)=96.05ms  p(99)=120.37ms max=139.72ms
+      { expected_response:true }........: avg=24.46ms med=4.63ms  p(90)=90.36ms  p(95)=96.05ms  p(99)=120.37ms max=139.72ms
+      { tipo:consulta,etapa:estable }...: avg=18.37ms med=3.63ms  p(90)=88.57ms  p(95)=91.59ms  p(99)=96.05ms  max=137.71ms
+      { tipo:dinero,etapa:estable }.....: avg=48.4ms  med=50.89ms p(90)=111.91ms p(95)=120.11ms p(99)=125.93ms max=132.37ms
+    http_req_failed.....................: 0.00%  0 out of 16452
+    http_reqs...........................: 16452  8.185072/s
+
+    EXECUTION
+    iteration_duration..................: avg=1m44s   med=1m44s   p(90)=1m58s    p(95)=2m1s     p(99)=2m6s     max=2m18s   
+    iterations..........................: 1783   0.887064/s
+    vus.................................: 1      min=0          max=100
+    vus_max.............................: 100    min=100        max=100
+
+    NETWORK
+    data_received.......................: 14 MB  6.8 kB/s
+    data_sent...........................: 5.9 MB 3.0 kB/s
+
+
+
+[resistencia] preparando 100 usuarios…
+{
+ "umbrales_k6_cumplidos": true,
+ "etapas": {
+  "rampa": {
+   "peticiones": 500,
+   "duracion_s": 119,
+   "rps": 4.2,
+   "sesiones_por_hora": 3328,
+   "p95_consulta_ms": 96.1,
+   "p95_dinero_ms": 121.0,
+   "p99_consulta_ms": 102.3,
+   "p99_dinero_ms": 123.8,
+   "error_tecnico_%": 0.0,
+   "error_negocio_%": 0.0
+  },
+  "estable": {
+   "peticiones": 15491,
+   "duracion_s": 1800,
+   "rps": 8.61,
+   "sesiones_por_hora": 3440,
+   "p95_consulta_ms": 91.6,
+   "p95_dinero_ms": 120.1,
+   "p99_consulta_ms": 96.1,
+   "p99_dinero_ms": 125.9,
+   "error_tecnico_%": 0.0,
+   "error_negocio_%": 0.0
+  },
+  "bajada": {
+   "peticiones": 461,
+   "duracion_s": 85,
+   "rps": 5.42,
+   "sesiones_por_hora": 1016,
+   "p95_consulta_ms": 86.4,
+   "p95_dinero_ms": 117.7,
+   "p99_consulta_ms": 93.7,
+   "p99_dinero_ms": 122.0,
+   "error_tecnico_%": 0.0,
+   "error_negocio_%": 0.0
+  },
+  "_por_operacion_p95_ms": {
+   "consultar_deudas": 9.9,
+   "contactos": 9.6,
+   "login": 97.0,
+   "movimientos": 25.8,
+   "otras": 9.7,
+   "pagar_servicio": 4.4,
+   "perfil": 3.6,
+   "recargar": 10.2,
+   "saldo": 9.5,
+   "transferir": 122.8
+  }
+ },
+ "recursos": {
+  "qolqe_cpu_%": {
+   "max": 57.8,
+   "prom": 12.4
+  },
+  "qolqe_mem_MB": {
+   "max": 103.1,
+   "prom": 85.5,
+   "inicio": 66.6,
+   "fin": 83.0
+  },
+  "k6_cpu_%": {
+   "max": 20.3,
+   "prom": 1.0
+  },
+  "k6_mem_MB": {
+   "max": 91.5,
+   "prom": 82.6
+  },
+  "total_cpu_%": {
+   "max": 58.4,
+   "prom": 6.8
+  }
+ }
+}
+Integridad del dinero OK

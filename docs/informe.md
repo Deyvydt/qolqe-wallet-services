@@ -109,7 +109,21 @@ Orden (*fail fast*): **api → web → reportes**. Si la API falla, la web se om
 **Trazabilidad.** Las etiquetas `@HU-G2-xx @CAx` del Gherkin y `HU-G2-xx CP-Wxx` de Robot viajan en el JUnit XML / output.xml; el pipeline genera en cada run la matriz HU → caso → nivel → resultado → defecto (`trazabilidad.html` en Pages, resumen del run y `docs/trazabilidad.md`).
 
 ## 4. Pruebas de rendimiento
-*(Parte 3)*
+
+El informe completo, sobre la plantilla del curso, está en **[`docs/rendimiento/Informe_Rendimiento_G2.docx`](rendimiento/Informe_Rendimiento_G2.docx)**. Se genera desde los resultados con `python docs/rendimiento/generar_informe.py docs/rendimiento/Template_Informe_Rendimiento.docx`. Scripts y evidencia: `tests/performance/` (ver su README).
+
+**Herramienta:** Grafana k6 v2.1.0 (comparación con JMeter, Gatling, Locust y Artillery en `docs/rendimiento/herramienta.md`). **Entorno:** local (i5-11400H, 32 GB, Windows 11), Qolqe con uvicorn en 1 proceso. CPU y memoria de Qolqe y de k6 medidas con psutil cada 1 s.
+
+**Modelo de carga** (cada valor sale del requerimiento): 3 000 sesiones/h × 2 min = **100 VUs** en hora punta (ley de Little); campaña = **300 VUs** con rampa de 5 min; sesión = login + 6 operaciones con la mezcla 30/15/15/10/10/6/4/10 y pausa de 10–25 s; un usuario de carga distinto por VU con S/ 10 000 y 20 deudas propias.
+
+| Prueba | Carga | p95 consultas (< 800 ms) | p95 dinero (< 1 500 ms) | Errores técnicos (< 1 %) | Throughput | Integridad del dinero |
+|---|---|---|---|---|---|---|
+| Carga | 100 VUs · 13 min | 91 ms ✓ | 117 ms ✓ | 0 % ✓ | 3 366 ses/h ✓ | OK |
+| Pico (campaña) | 0→300 VUs en 5 min · 16 min | 94 ms ✓ | 120 ms ✓ | 0 % ✓ | 10 194 ses/h | OK |
+| Estrés | +200 VUs hasta 1 600 | ✓ hasta 1 000 VUs · ✗ en 1 200 (60 s) | ✓ hasta 1 000 · ✗ en 1 200 | 0 % → 42–100 % | 85 req/s → 20 req/s | OK |
+| Resistencia | 100 VUs · 30 min estables | 92 ms ✓ | 120 ms ✓ | 0 % ✓ | 3 440 ses/h ✓ | OK · memoria plana (84→88 MB) |
+
+**Conclusión.** Qolqe cumple en hora punta y en la campaña con un margen de ~3×. La capacidad estimada es **~1 000 usuarios simultáneos** (línea base relativa, no capacidad de producción). En 1 200 VUs colapsa de forma abrupta y **no se recupera sin reinicio** (DEF-05). Cuello de botella: el lock de escritura de SQLite, retenido por una transacción abierta, con los 40 hilos del servidor esperándolo (evidencia: CPU ≈ 5 % en el colapso, volcado de hilos con py-spy, «database is locked»). Recomendaciones: limitar la concurrencia (503 rápido en vez de cola infinita), transacciones cortas con commit/rollback garantizado, PostgreSQL en producción y health check con reinicio automático.
 
 ## 5. Defectos encontrados
 
