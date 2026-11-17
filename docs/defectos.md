@@ -12,6 +12,7 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 | DEF-02 | Los días de atraso se cuentan con un día de más, así que se cobra mora el mismo día del vencimiento | R-G2-03 | **Alta** | **Alta** | 5 |
 | DEF-03 | Una deuda con 60 días de atraso pasa a cobranza y no se puede pagar | R-G2-04 | **Alta** | **Alta** | 2 |
 | DEF-04 | El débito automático paga deudas ya vencidas antes de activarlo, y sin mora | HU-G2-05 CA4 | Media | Media | 1 |
+| DEF-05 | Con ~1 200 usuarios simultáneos el servicio colapsa y no se recupera sin reinicio (rendimiento) | Requerimiento «Quincena Qolqe» | **Alta** | Media | estrés |
 
 ---
 
@@ -103,6 +104,29 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 **Resultado obtenido:** `debitos_pagados = 1`. Se pagó la deuda vencida, con origen `DEBITO_AUTOMATICO`, `mora = 0.00` y `total = 200.00`, aunque la consulta mostraba un total de 202.00.
 
 **Evidencia:** `{"debitos_pagados":1,...}` y `GET /api/servicios/pagos` muestra el pago. Causa probable: el proceso diario filtra `vencimiento <= hoy` en lugar de `= hoy`.
+
+---
+
+## DEF-05 (rendimiento): Con ~1 200 usuarios simultáneos el servicio colapsa y no se recupera sin reinicio
+
+| Campo | Valor |
+|---|---|
+| Módulo / requisito | Toda la API · requerimiento de rendimiento «Quincena Qolqe» («opera de 6:00 a 24:00 sin reinicios») |
+| Severidad | **Alta**: caída total y permanente del servicio |
+| Prioridad | Media: ocurre a 4× la carga de la campaña (300 VUs) |
+| Entorno | Local: i5-11400H, 32 GB, Windows 11, uvicorn 1 proceso, SQLite. k6 v2.1.0 |
+| Prueba que lo detecta | `python tests/performance/ejecutar.py estres` (escalón de 1 200 VUs) |
+
+**Pasos para reproducir**
+1. Levantar Qolqe: `uvicorn qolqe.main:app --port 8000 --no-access-log`.
+2. `python tests/performance/ejecutar.py estres` (escalones de +200 VUs con la mezcla de operaciones del requerimiento).
+3. Al llegar a 1 200 VUs (~100 req/s), y al terminar la prueba, consultar `GET /api/salud`.
+
+**Resultado esperado:** con exceso de carga, degradación controlada (respuestas más lentas o 503) y recuperación al bajar la carga.
+
+**Resultado obtenido:** p95 = 60 s (timeout), errores técnicos 42–100 %, throughput de ~100 a ~20 req/s. 13 minutos después de terminar la prueba, `/api/salud` seguía sin responder, la memoria en ~1.2 GB y `BEGIN IMMEDIATE` sobre la BD devolvía «database is locked». Hubo que reiniciar el proceso. La integridad del dinero se mantuvo (0 descuadres).
+
+**Evidencia:** `tests/performance/resultados/estres/` → `graficos.png`, `analisis.json`, `hilos_py-spy.txt` (los 40 hilos de trabajo detenidos en un INSERT/UPDATE esperando el lock; ninguno en commit/rollback), `recuperacion.log`. Causa probable: una transacción de escritura queda abierta sin dueño (posiblemente una petición interrumpida por desconexión del cliente entre su escritura y su commit), y como SQLite admite un solo escritor, todas las demás escrituras esperan el `busy_timeout` de 10 s y ocupan los 40 hilos. Falta además un límite de concurrencia que rechace el exceso con 503.
 
 ---
 

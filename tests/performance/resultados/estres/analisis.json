@@ -1,0 +1,263 @@
+{
+  "escenario": "estres",
+  "inicio": "2026-11-13 19:44:22",
+  "fin": "2026-11-13 20:09:53",
+  "usuarios_preparados": 1600,
+  "umbrales_k6_cumplidos": false,
+  "etapas": {
+    "r200": {
+      "peticiones": 536,
+      "duracion_s": 59,
+      "rps": 9.08,
+      "sesiones_por_hora": 12142,
+      "p95_consulta_ms": 95.8,
+      "p95_dinero_ms": 122.1,
+      "p99_consulta_ms": 99.6,
+      "p99_dinero_ms": 127.6,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "200": {
+      "peticiones": 2019,
+      "duracion_s": 120,
+      "rps": 16.82,
+      "sesiones_por_hora": 5940,
+      "p95_consulta_ms": 91.9,
+      "p95_dinero_ms": 117.8,
+      "p99_consulta_ms": 96.9,
+      "p99_dinero_ms": 123.7,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "r400": {
+      "peticiones": 1544,
+      "duracion_s": 60,
+      "rps": 25.73,
+      "sesiones_por_hora": 17940,
+      "p95_consulta_ms": 95.6,
+      "p95_dinero_ms": 116.4,
+      "p99_consulta_ms": 100.5,
+      "p99_dinero_ms": 124.7,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "400": {
+      "peticiones": 4107,
+      "duracion_s": 120,
+      "rps": 34.23,
+      "sesiones_por_hora": 13410,
+      "p95_consulta_ms": 91.3,
+      "p95_dinero_ms": 119.7,
+      "p99_consulta_ms": 96.5,
+      "p99_dinero_ms": 124.6,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "r600": {
+      "peticiones": 2563,
+      "duracion_s": 60,
+      "rps": 42.72,
+      "sesiones_por_hora": 22680,
+      "p95_consulta_ms": 94.1,
+      "p95_dinero_ms": 119.7,
+      "p99_consulta_ms": 98.8,
+      "p99_dinero_ms": 126.8,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "600": {
+      "peticiones": 6128,
+      "duracion_s": 120,
+      "rps": 51.07,
+      "sesiones_por_hora": 19980,
+      "p95_consulta_ms": 93.7,
+      "p95_dinero_ms": 117.8,
+      "p99_consulta_ms": 99.0,
+      "p99_dinero_ms": 126.8,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "r800": {
+      "peticiones": 3675,
+      "duracion_s": 60,
+      "rps": 61.25,
+      "sesiones_por_hora": 31680,
+      "p95_consulta_ms": 95.5,
+      "p95_dinero_ms": 119.0,
+      "p99_consulta_ms": 109.5,
+      "p99_dinero_ms": 125.4,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "800": {
+      "peticiones": 8193,
+      "duracion_s": 120,
+      "rps": 68.28,
+      "sesiones_por_hora": 26640,
+      "p95_consulta_ms": 94.3,
+      "p95_dinero_ms": 118.1,
+      "p99_consulta_ms": 100.5,
+      "p99_dinero_ms": 125.0,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "r1000": {
+      "peticiones": 4659,
+      "duracion_s": 60,
+      "rps": 77.65,
+      "sesiones_por_hora": 38820,
+      "p95_consulta_ms": 96.0,
+      "p95_dinero_ms": 119.1,
+      "p99_consulta_ms": 107.8,
+      "p99_dinero_ms": 127.5,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "1000": {
+      "peticiones": 10209,
+      "duracion_s": 120,
+      "rps": 85.08,
+      "sesiones_por_hora": 33420,
+      "p95_consulta_ms": 95.1,
+      "p95_dinero_ms": 119.7,
+      "p99_consulta_ms": 104.4,
+      "p99_dinero_ms": 127.0,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "r1200": {
+      "peticiones": 5755,
+      "duracion_s": 60,
+      "rps": 95.92,
+      "sesiones_por_hora": 44520,
+      "p95_consulta_ms": 96.0,
+      "p95_dinero_ms": 120.1,
+      "p99_consulta_ms": 116.6,
+      "p99_dinero_ms": 127.0,
+      "error_tecnico_%": 0.0,
+      "error_negocio_%": 0.0
+    },
+    "1200": {
+      "peticiones": 5078,
+      "duracion_s": 180,
+      "rps": 28.21,
+      "sesiones_por_hora": 9540,
+      "p95_consulta_ms": 60000.3,
+      "p95_dinero_ms": 60000.0,
+      "p99_consulta_ms": 60000.5,
+      "p99_dinero_ms": 60000.5,
+      "error_tecnico_%": 42.08,
+      "error_negocio_%": 0.0
+    },
+    "r1400": {
+      "peticiones": 1110,
+      "duracion_s": 60,
+      "rps": 18.5,
+      "sesiones_por_hora": 26520,
+      "p95_consulta_ms": 60000.1,
+      "p95_dinero_ms": 60000.2,
+      "p99_consulta_ms": 60000.5,
+      "p99_dinero_ms": 60000.5,
+      "error_tecnico_%": 100.0,
+      "error_negocio_%": 0.0
+    },
+    "1400": {
+      "peticiones": 2478,
+      "duracion_s": 120,
+      "rps": 20.65,
+      "sesiones_por_hora": 34710,
+      "p95_consulta_ms": 60000.4,
+      "p95_dinero_ms": 60000.4,
+      "p99_consulta_ms": 60000.7,
+      "p99_dinero_ms": 60000.6,
+      "error_tecnico_%": 100.0,
+      "error_negocio_%": 0.0
+    },
+    "r1600": {
+      "peticiones": 1492,
+      "duracion_s": 60,
+      "rps": 24.87,
+      "sesiones_por_hora": 57480,
+      "p95_consulta_ms": 60000.2,
+      "p95_dinero_ms": 60000.1,
+      "p99_consulta_ms": 60000.5,
+      "p99_dinero_ms": 60000.1,
+      "error_tecnico_%": 100.0,
+      "error_negocio_%": 0.0
+    },
+    "1600": {
+      "peticiones": 2727,
+      "duracion_s": 120,
+      "rps": 22.73,
+      "sesiones_por_hora": 64560,
+      "p95_consulta_ms": 60000.2,
+      "p95_dinero_ms": 60000.1,
+      "p99_consulta_ms": 60000.5,
+      "p99_dinero_ms": 60000.6,
+      "error_tecnico_%": 100.0,
+      "error_negocio_%": 0.0
+    },
+    "bajada": {
+      "peticiones": 181,
+      "duracion_s": 30,
+      "rps": 6.03,
+      "sesiones_por_hora": 17400,
+      "p95_consulta_ms": 60000.4,
+      "p95_dinero_ms": 60000.4,
+      "p99_consulta_ms": 60000.6,
+      "p99_dinero_ms": 60000.4,
+      "error_tecnico_%": 100.0,
+      "error_negocio_%": 0.0
+    },
+    "_por_operacion_p95_ms": {
+      "consultar_deudas": 59999.8,
+      "contactos": 59999.8,
+      "login": 60000.0,
+      "movimientos": 59999.8,
+      "otras": 59999.9,
+      "pagar_servicio": 11.1,
+      "perfil": 59999.8,
+      "recargar": 59999.7,
+      "saldo": 59999.8,
+      "transferir": 59999.8
+    }
+  },
+  "recursos": {
+    "qolqe_cpu_%": {
+      "max": 337.5,
+      "prom": 64.0
+    },
+    "qolqe_mem_MB": {
+      "max": 1167.1,
+      "prom": 327.4,
+      "inicio": 84.1,
+      "fin": 1167.1
+    },
+    "k6_cpu_%": {
+      "max": 164.7,
+      "prom": 5.9
+    },
+    "k6_mem_MB": {
+      "max": 766.1,
+      "prom": 600.7
+    },
+    "total_cpu_%": {
+      "max": 51.4,
+      "prom": 12.0
+    }
+  },
+  "integridad_dinero": {
+    "usuarios_revisados": 1600,
+    "movimientos_nuevos_por_tipo": {
+      "PAGO_SERVICIO": 1342,
+      "RECARGA": 3402,
+      "TRANSFERENCIA_ENVIADA": 5015,
+      "TRANSFERENCIA_RECIBIDA": 5015
+    },
+    "transferencias_completas": true,
+    "usuarios_con_descuadre": {},
+    "codigos_repetidos": [],
+    "deudas_pagadas_dos_veces": [],
+    "ok": true
+  }
+}
