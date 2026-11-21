@@ -55,7 +55,7 @@ def test_clasificador_por_reglas(mensaje, categoria, defecto):
 
 
 def test_defectos_conocidos_salen_de_defectos_md():
-    assert t.defectos_conocidos() == ["DEF-01", "DEF-02", "DEF-03", "DEF-04", "DEF-05"]
+    assert t.defectos_conocidos() == ["DEF-01", "DEF-02", "DEF-03", "DEF-04", "DEF-05", "DEF-06"]
 
 
 def test_validacion_rechaza_def_inventado_y_categoria_invalida():
