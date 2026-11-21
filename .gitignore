@@ -5,13 +5,21 @@ datos/
 .pytest_cache/
 .coverage
 htmlcov/
-reportes/
+# Solo la carpeta de trabajo de la raíz; los reportes de tests/*/reportes SÍ se entregan.
+/reportes/
+.env
+.env.*
+.claude/
+*.db
 
 # Robot Framework
 results/
 output.xml
 log.html
 report.html
+!tests/e2e/reportes/output.xml
+!tests/e2e/reportes/log.html
+!tests/e2e/reportes/report.html
 
 # Locales (rutas de esta PC / cachés de herramientas)
 .mcp.json

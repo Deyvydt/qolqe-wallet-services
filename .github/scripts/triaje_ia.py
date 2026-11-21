@@ -24,7 +24,7 @@ CÓMO FUNCIONA:
   Al modelo solo se envían el nombre de la prueba y su traza (sin variables de entorno).
 
 CÓMO SE USA (desde la raíz del repo):
-  python .github/scripts/triaje_ia.py reportes/api/junit.xml reportes/web/output.xml --json reportes/triaje.json
+  python .github/scripts/triaje_ia.py reportes/api/junit.xml reportes/web/output.xml --json reportes/triaje/triaje.json
   python .github/scripts/triaje_ia.py reportes/api/junit.xml --offline     # solo reglas, sin red
   Variables: GITHUB_TOKEN (permiso models: read), TRIAJE_MODELO (por defecto openai/gpt-4.1-mini).
 """

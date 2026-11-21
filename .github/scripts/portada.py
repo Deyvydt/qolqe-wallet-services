@@ -30,7 +30,11 @@ REPORTES = [
     ("web/report.html", "🖥️", "Pruebas web de punta a punta · Reporte",
      "Un robot abre el navegador y usa la app como lo haría una persona: inicia sesión, consulta y paga. Aquí está el resumen."),
     ("web/log.html", "🔎", "Pruebas web de punta a punta · Detalle paso a paso",
-     "El mismo recorrido del robot, paso por paso, con capturas de pantalla para ver exactamente qué pasó."),
+     "El mismo recorrido del robot, paso por paso, con capturas de pantalla si la ejecución se pidió con evidencia."),
+    ("rendimiento/reporte_k6.html", "⚡", "Rendimiento (k6 humo)",
+     "Mide tiempos de respuesta y errores en cada ejecución. Las pruebas largas están en tests/performance/resultados."),
+    ("triaje/validacion.md", "🤖", "Validación del agente de triaje (IA)",
+     "Compara al agente con las reglas sobre 10 fallas con respuesta conocida."),
 ]
 
 CSS_EXTRA = """

@@ -89,7 +89,7 @@ flowchart LR
     K6["k6<br/>tests/performance/qolqe.js"] --> API
 
     subgraph CI["GitHub Actions"]
-        PIPE["contrato → api ‖ web ‖ rendimiento<br/>→ quality-gate → reportes → publicar"]
+        PIPE["contrato → api ‖ web ‖ rendimiento<br/>→ quality-gate → reportes → publicar → reporte-final"]
     end
     BDD & ST & RF & K6 -.JUnit XML / output.xml / JSON.-> PIPE
     PIPE --> PAGES["GitHub Pages<br/>reportes + matriz de trazabilidad"]
@@ -294,7 +294,7 @@ Copiado de la cabecera de [`.github/workflows/pruebas.yml`](../.github/workflows
 
 ```
   contrato ─┬─► api ──────────┐
-            ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main)
+            ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main) ─► reporte-final
             └─► rendimiento ──┘        triaje-ia ──┘
 ```
 
@@ -323,13 +323,16 @@ flowchart LR
 | 6 | `triaje-ia` | `pruebas.yml` | `contrato, api, web, rendimiento` | `!cancelled()` + `continue-on-error: true` | Hipótesis de causa para cada falla nueva y validación del triaje contra 10 casos etiquetados (§8) | En paralelo con el gate; **nunca decide** el resultado |
 | 7 | `reportes` | `pruebas.yml` | `quality-gate, triaje-ia` | `!cancelled()` → **corre SIEMPRE**, también si hubo fallas | Junta los artefactos, arma la matriz de trazabilidad y la portada, sube la ejecución a Qase y guarda el sitio como artefacto `sitio-reportes` (también en PR y ramas) | **Último job de pruebas:** la evidencia queda visible al final de cada ejecución, pase o falle |
 | 8 | `publicar` | `pruebas.yml` | `quality-gate, reportes` | `main` **y** gate en verde **y** reportes en verde (en manual, solo con `suite = todas`) | Publica el sitio en GitHub Pages | Al final y solo con el gate en verde: nunca se publica un estado en rojo |
+| 9 | `reporte-final` | `pruebas.yml` | todos los anteriores | Siempre (`!cancelled()`) | Último job: imprime el reporte consolidado en consola; solo informa, no decide el gate |
 
 ### 5.3 Reportería con / sin evidencia
+
+**Reporte en consola:** el último job, `reporte-final`, corre siempre e imprime en el log el veredicto, los quality gates, los totales por suite, la cobertura por endpoint, los defectos detectados, las fallas nuevas y los enlaces (`.github/scripts/reporte_consola.py`). El detalle navegable sigue en Pages y el historial en Qase.
 
 | `evidencia` | Qué se genera | Para qué |
 |---|---|---|
 | `con` (por defecto, también en push y PR) | Captura de página completa al final de cada prueba web + traza Playwright si falla + reportes HTML | Auditoría y demostración |
-| `sin` | Sin capturas (ni siquiera la automática al fallar); la traza de Playwright se guarda igual si una prueba falla | Corridas rápidas; el diagnóstico de fallas no se pierde |
+| `sin` | Sin capturas (ni la automática al fallar) y, en CI, sin trazas de Playwright: el artefacto queda con **0 imágenes** | Corridas rápidas y reportes livianos |
 
 Se aplica con `-v EVIDENCIA:con|sin` en Robot (`tests/e2e/resources/Comun.resource`); un valor distinto de `con`/`sin` hace fallar el teardown para no equivocarse en silencio. En ambos casos el job `reportes` genera el sitio y la matriz.
 
@@ -344,7 +347,7 @@ Un *quality gate* es una condición medible que un cambio debe cumplir para fusi
 | Gate | Qué protege | Cómo se mide | Umbral | Dónde se ve (job / resumen) | ¿Bloquea el merge? | Ejemplo de falla |
 |---|---|---|---|---|---|---|
 | **1 · Contrato** | A los consumidores de la API: que responda según su OpenAPI | `_contrato.yml`: paso que exige que `app.openapi()` tenga versión y ≥ 4 rutas `/api/servicios`; luego `pytest tests/tecnico` (Schemathesis genera casos válidos, inválidos, sin token y con otros métodos para E1–E9) | **0 respuestas 5xx** y cada validación con la respuesta correcta | Job *Contrato · OpenAPI + Schemathesis* · resumen «Contrato (Schemathesis)» · artefacto `reportes-contrato` | **Sí.** Además, si falla, `api`, `web` y `rendimiento` no corren (quedan *skipped*) y el gate agregado se pone en rojo igual, para no dar un falso verde | Un entero enorme en `monto` devuelve 500 en vez de 422 |
-| **2 · API** | Las reglas de negocio y validaciones de E1–E10 | `_api.yml`: `pytest` (pytest-bdd) con JUnit XML; `tests/conftest.py` marca los fallos ligados a un DEF como `xfail(strict=True)`. En el mismo job, `pytest tests/triaje tests/qase` | **0 fallos nuevos.** Defectos conocidos DEF-01…04 como `xfail strict`: si uno se corrige y la prueba pasa (**XPASS**), el job falla para actualizar la lista | Job *API · pytest-bdd* · resumen «Pruebas de API (pytest-bdd)» · REPORTE TOTAL endpoint × tipo en el log · artefacto `reportes-api` | **Sí** | Un cambio acepta suministros de 7 dígitos → escenario de partición `failed` (nuevo) → rojo. O se corrige DEF-02 sin quitarlo de la lista → XPASS → rojo |
+| **2 · API** | Las reglas de negocio y validaciones de E1–E10 | `_api.yml`: `pytest` (pytest-bdd) con JUnit XML; `tests/conftest.py` marca los fallos ligados a un DEF como `xfail(strict=True)`. En el mismo job, `pytest tests/triaje tests/qase` | **0 fallos nuevos.** Defectos conocidos DEF-01…04 y DEF-07…14 como `xfail strict`: si uno se corrige y la prueba pasa (**XPASS**), el job falla para actualizar la lista | Job *API · pytest-bdd* · resumen «Pruebas de API (pytest-bdd)» · REPORTE TOTAL endpoint × tipo en el log · artefacto `reportes-api` | **Sí** | Un cambio acepta suministros de 7 dígitos → escenario de partición `failed` (nuevo) → rojo. O se corrige DEF-02 sin quitarlo de la lista → XPASS → rojo |
 | **3 · Web** | Lo que el usuario ve y hace, y que la suite sea **estable** | `_web.yml`: Robot corre la suite `repeticiones` veces seguidas (3 por defecto) y cuenta las ejecuciones en verde; `--skiponfailure defecto` | **Todas las ejecuciones seguidas en verde** (3 de 3). SKIP **solo** para escenarios etiquetados `@defecto` (DEF-02, DEF-06), con el mensaje original | Job *Web · Robot Framework + Browser* · resumen «Estabilidad web: N de 3 ejecuciones seguidas en verde» y tabla «Omitidas por defecto conocido» · artefacto `reportes-web` | **Sí** | Un escenario sin `@defecto` falla en la 2.ª de 3 ejecuciones (prueba frágil o regresión) → 2 de 3 → rojo |
 | **4 · Rendimiento (humo)** | Que un cambio no degrade la latencia ni descuadre el dinero | `_rendimiento.yml`: `ejecutar.py humo` (k6, 2 VUs, ~1 min) y lectura de `resultados/humo/analisis.json` (`umbrales_k6_cumplidos` e `integridad_dinero.ok`) | **p95 consultas < 800 ms · p95 operaciones de dinero < 1 500 ms · errores técnicos < 1 %** e **integridad del dinero**: ningún descuadre, ningún código repetido, ninguna deuda pagada 2 veces | Job *Rendimiento · k6 humo* · resumen «Rendimiento · humo k6» (Umbrales k6 ✅/❌, Integridad del dinero ✅/❌) · artefacto `reportes-rendimiento` | **Sí** (cuando corre: push, PR o manual con `suite = todas`) | Una consulta sin índice lleva el p95 de deudas a 900 ms → umbral ❌ → rojo |
 | **5 · Quality gate agregado** | `main`: que nada en rojo se fusione | Job `quality-gate`: lee `needs` de `contrato, api, web, rendimiento` | Ningún gate en `failure` o `cancelled`, y `contrato` en `success`. Un gate `skipped` por elección de `suite` se muestra como «no aplica» | Job *Quality gate* · tabla **«Quality gate» (Criterio · Umbral · Resultado)** y la línea «Resultado: ✅/❌» en el resumen del run | **Sí: es el check requerido de `main`** | Cualquiera de los ejemplos anteriores |
@@ -374,7 +377,7 @@ Un *quality gate* es una condición medible que un cambio debe cumplir para fusi
 | Cada prueba (escenario Gherkin, prueba Schemathesis, caso Robot) | Un **caso** del repositorio de Qase, en su suite (*API - Funcional*, *API - Técnico*, *Web E2E - Núcleo común*, *Web E2E - G2 Servicios*) | El título es estable (`[nivel] nombre`): se busca por título y se reutiliza, así cada run suma historial al **mismo** caso |
 | Resultado: pasa / falla / omitida / xfail | `passed` / `failed` (con el mensaje) / `skipped` / `skipped` con «Fallo esperado: defecto conocido DEF-0X» | Mapeo en `qase_subir.py`, probado en `tests/qase/test_qase_subir.py` |
 | Varios runs seguidos | Lista *Test Runs* con el % de casos que pasan; ficha del caso → historial en todos los runs | Permite ver en qué commit apareció una regresión o que DEF-02 sigue omitido run tras run |
-| Primer run subido | https://app.qase.io/run/QOLQE/dashboard/1 : **153 casos pasados** | Línea base del historial |
+| Primer run subido | https://app.qase.io/run/QOLQE/dashboard/1 : **153 casos ejecutados** | Línea base del historial |
 
 Las etiquetas del Gherkin (`@HU`, `@CA`, `@E`) viajan en el JUnit XML y en el `output.xml` de Robot y llenan los campos propios *Endpoint* e *Historia de usuario* de Qase.
 
@@ -399,7 +402,7 @@ Resumen de [`docs/trazabilidad-qase.md`](trazabilidad-qase.md):
 | Qué hace | Para cada falla **nueva** del run propone categoría (`defecto_real`, `prueba_fragil`, `entorno`), el DEF ya reportado al que corresponde (si alguno), causa probable y siguiente paso |
 | Cómo | Agente con Claude (`claude-haiku-5-5`, API de Anthropic; GitHub Models como alternativa) que puede consultar `docs/defectos.md`, el diff del último commit y el código del repo antes de responder (`.github/scripts/triaje_ia.py`) |
 | Validación | 10 fallas etiquetadas a mano (`tests/triaje/casos_etiquetados.json`): DEF-01…05 y 5 sintéticas. Se mide exactitud de categoría y de DEF frente a una **línea base por reglas**. Pruebas unitarias sin red en `tests/triaje/test_triaje.py` (corren en el job `api`) |
-| Resultados | Línea base por reglas: **9/10** en categoría y **10/10** en DEF. **Modelo:** el job `triaje-ia` ejecuta `validar_triaje.py` con el modelo real en cada run; las cifras quedan en el artefacto `triaje-ia` (`validacion.md`) tras el próximo run. Detalle: [`docs/ia/validacion_triaje.md`](ia/validacion_triaje.md) |
+| Resultados | Línea base por reglas: **9/10** en categoría y **10/10** en DEF. **Modelo (Claude):** **10/10** en categoría y **10/10** en DEF. El job `triaje-ia` repite la validación en cada run y la deja en el artefacto `triaje-ia` (`validacion.md`). Detalle: [`docs/ia/validacion_triaje.md`](ia/validacion_triaje.md) |
 | Controles | Salida JSON validada; el DEF solo se acepta si existe en `defectos.md`; **humano en el bucle** (solo sugiere: no marca xfail ni abre/cierra defectos); nunca bloquea el pipeline; se filtran tokens/contraseñas de las trazas |
 | Límites | 10 casos son pocos (resultado orientativo); la línea base es optimista porque sus reglas salen de las mismas huellas de `defectos.md`; un timeout de carga (DEF-05) es difícil de separar de «entorno» |
 
@@ -462,10 +465,10 @@ Herramienta k6 v2.1.0; entorno local (i5-11400H, 32 GB, Windows 11), Qolqe en 1 
 
 ### Conclusiones
 
-1. **Cobertura completa del módulo por endpoint:** 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 pruebas de API sobre los 10 endpoints (72 funcionales / 52 técnicas), las 7 HU de G2 con casos, pruebas de API del núcleo común y 30 pruebas web que cubren núcleo y G2.
-2. **Las pruebas encontraron defectos reales:** 6 defectos, 4 de severidad Alta (cobro de mora indebido, pago bloqueado a los 60 días, colapso bajo carga y respuesta antes del commit).
+1. **Cobertura completa del módulo por endpoint:** 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 pruebas de API de G2 sobre sus 10 endpoints, más 116 del núcleo común (N1–N9): **240 pruebas de API** (154 funcionales / 86 técnicas), más **30 pruebas web**. Total **270**; en el run #25: 250 pasan, 18 fallos esperados, 2 omitidas por defecto conocido y 0 fallos nuevos.
+2. **Las pruebas encontraron defectos reales:** 14 defectos, 9 de severidad Alta (entre ellos cobro de mora indebido, colapso bajo carga, sesión que no se invalida al salir y saldo que puede quedar negativo).
 3. **El pipeline es un quality gate efectivo:** un fallo nuevo, un defecto corregido sin actualizar la lista (XPASS), una prueba web inestable o una regresión de latencia lo ponen en rojo y bloquean el PR (§6).
-4. **La técnica importa más que la cantidad:** 9 de los 10 fallos esperados salieron de **valores límite** (0/1/19/20/21/60 días, 12/13 dígitos).
+4. **La técnica importa más que la cantidad:** en G2, 9 de los 10 fallos esperados salieron de **valores límite** (0/1/19/20/21/60 días, 12/13 dígitos).
 
 ### Limitaciones (honestas)
 
@@ -473,7 +476,7 @@ Herramienta k6 v2.1.0; entorno local (i5-11400H, 32 GB, Windows 11), Qolqe en 1 
 |---|---|
 | Rendimiento medido en una sola máquina local, con SQLite | Las cifras son una línea base relativa, no capacidad de producción |
 | DEF-06 es intermitente y afecta a la web | Se mitiga con login por API y verificación recargando; los escenarios que lo exponen quedan en SKIP, no en verde real |
-| Validación del triaje con 10 casos; las cifras del modelo dependen del próximo run del pipeline | El valor de la IA se demuestra con pocos números; la línea base es optimista |
+| Validación del triaje con solo 10 casos, 5 de ellos defectos ya documentados | El 10/10 mide el reconocimiento de lo documentado, no la generalización; por eso el triaje solo sugiere |
 | Schemathesis no genera algunos casos (p. ej. «falta un campo», «entero enorme») en modo determinista | Esas validaciones se cubren a mano en el Gherkin, no por generación |
 | Trabajo individual | Se priorizó por riesgo (§1.1); G2 completo y el núcleo común por web y API |
 

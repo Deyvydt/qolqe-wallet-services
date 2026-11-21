@@ -14,7 +14,7 @@ uvicorn qolqe.main:app --port 8000 --no-access-log
 # 2) en otra terminal (Python con psutil y matplotlib)
 python tests/performance/ejecutar.py carga        # 100 VUs, 13 min
 python tests/performance/ejecutar.py pico         # 300 VUs (campaña), 16 min
-python tests/performance/ejecutar.py estres       # escalones de 100 VUs (ESCALONES=100,200,...)
+python tests/performance/ejecutar.py estres       # escalones de 200 VUs (ESCALONES=100,200,...)
 python tests/performance/ejecutar.py resistencia  # 100 VUs, 33 min
 python tests/performance/ejecutar.py humo         # 2 VUs, 1 min (demo / prueba rápida)
 ```

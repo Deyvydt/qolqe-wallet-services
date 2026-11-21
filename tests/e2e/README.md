@@ -88,7 +88,7 @@ Resultado esperado: `30 tests, 28 passed, 0 failed, 2 skipped` (los 2 *skipped* 
 
 ## Evidencia
 
-Con `EVIDENCIA=con` (por defecto) el teardown toma una captura de página completa al terminar cada prueba. Con `EVIDENCIA=sin` no se toma ninguna, ni siquiera la automática de Browser al fallar un paso (cualquier otro valor hace fallar el teardown, para no equivocarse en silencio). La traza de Playwright se guarda **siempre que una prueba falla**.
+Con `EVIDENCIA=con` (por defecto) el teardown toma una captura de página completa al terminar cada prueba. Con `EVIDENCIA=sin` no se toma ninguna, ni siquiera la automática de Browser al fallar un paso (cualquier otro valor hace fallar el teardown, para no equivocarse en silencio). En local, la traza de Playwright se guarda si una prueba falla; en el pipeline, con `sin` también se borra para que el reporte quede sin imágenes.
 
 | Archivo | Qué contiene |
 |---|---|

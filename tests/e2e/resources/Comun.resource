@@ -11,7 +11,7 @@ ${HEADLESS}    True
 # Pausa entre cada acción del navegador. Para la demo: -v SLOWMO:1s
 ${SLOWMO}      0s
 # Evidencia: "con" toma una captura al terminar cada prueba (y al fallar un paso); "sin" no
-# toma ninguna captura (más rápido). La traza de Playwright se guarda siempre que una prueba falla.
+# toma ninguna captura (más rápido). En CI, con "sin" también se borran las trazas (_web.yml).
 ${EVIDENCIA}   con
 
 
@@ -23,7 +23,7 @@ Abrir Navegador Con Datos Limpios
     New Context    viewport={'width': 1280, 'height': 800}    tracing=retain-on-failure
     # 15 s: en una máquina cargada la app tarda más en pintar los datos que llegan por API.
     Set Browser Timeout    15s
-    # Con EVIDENCIA=sin tampoco se toma la captura automática al fallar (queda la traza).
+    # Con EVIDENCIA=sin tampoco se toma la captura automática al fallar.
     IF    $EVIDENCIA == 'sin'    Register Keyword To Run On Failure    NONE
     New Page       ${URL}/login
     &{respuesta}=    Http    ${URL}/api/pruebas/reiniciar    method=POST
