@@ -6,7 +6,7 @@
 # CÓMO ESTÁ ARMADO: este archivo solo ORQUESTA; el trabajo lo hacen workflows reutilizables.
 #
 #   contrato ─┬─► api ──────────┐
-#             ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main)
+#             ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main) ─► reporte-final
 #             └─► rendimiento ──┘        triaje-ia ──┘
 #
 #   1. contrato     (_contrato.yml)   PRIMERO: valida el contrato OpenAPI con Schemathesis. Si la API
@@ -19,9 +19,11 @@
 #                     que protege main.
 #   6. triaje-ia      agente de IA que clasifica las fallas (defecto real / prueba frágil / entorno).
 #                     Nunca bloquea: orienta, no decide.
-#   7. reportes       ÚLTIMO job: junta todo (matriz endpoint×tipo, trazabilidad, triaje), sube la
-#                     ejecución a Qase y arma el sitio. Corre SIEMPRE, también si algo falló.
+#   7. reportes       junta todo (matriz endpoint×tipo, trazabilidad, triaje), sube la ejecución
+#                     a Qase y arma el sitio. Corre SIEMPRE, también si algo falló.
 #   8. publicar       publica el sitio en GitHub Pages (solo en main).
+#   9. reporte-final  ÚLTIMO job: imprime en CONSOLA el reporte consolidado (veredicto, gates,
+#                     totales, cobertura por endpoint, defectos y enlaces). Corre SIEMPRE.
 name: Pruebas G2
 
 on:
@@ -281,6 +283,23 @@ jobs:
           path: sitio
           retention-days: 30
 
+      # Solo los datos (sin capturas): así el reporte final no descarga cientos de MB.
+      - name: Guardar los datos del reporte final
+        run: |
+          mkdir -p datos-reporte
+          cp reportes/api/junit.xml datos-reporte/api.xml 2>/dev/null || true
+          cp reportes/contrato/junit.xml datos-reporte/contrato.xml 2>/dev/null || true
+          cp reportes/web/output.xml datos-reporte/web.xml 2>/dev/null || true
+          cp reportes/rendimiento/analisis.json datos-reporte/rendimiento.json 2>/dev/null || true
+
+      - name: Subir los datos del reporte final
+        uses: actions/upload-artifact@v7
+        with:
+          name: datos-reporte
+          path: datos-reporte
+          if-no-files-found: ignore
+          retention-days: 30
+
   publicar:
     name: Publicar en GitHub Pages
     needs: [quality-gate, reportes]
@@ -297,3 +316,36 @@ jobs:
       - name: Publicar en GitHub Pages
         id: publicar
         uses: actions/deploy-pages@v5
+
+  reporte-final:
+    name: Reporte final
+    # Depende de todos para ser literalmente lo último que se ve al terminar el pipeline.
+    needs: [contrato, api, web, rendimiento, quality-gate, triaje-ia, reportes, publicar]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Descargar los datos del reporte
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: datos-reporte
+          path: datos-reporte
+
+      - name: Reporte final en consola
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          RAMA: ${{ github.head_ref || github.ref_name }}
+          EVIDENCIA: ${{ inputs.evidencia || 'con' }}
+        run: >-
+          python .github/scripts/reporte_consola.py
+          --api datos-reporte/api.xml --contrato datos-reporte/contrato.xml
+          --web datos-reporte/web.xml
+          --evidencia "$EVIDENCIA"

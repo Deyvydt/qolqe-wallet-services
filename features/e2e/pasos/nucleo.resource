@@ -51,7 +51,13 @@ ingreso ${veces} veces con celular "${celular}" y PIN "${pin}"
     END
 
 estoy en la página de inicio
-    Deberia Estar En Inicio
+    [Documentation]    Solo la firma exacta de DEF-06 (401 tras un login correcto) da SKIP; cualquier otro fallo es FAIL.
+    ${ok}=    Run Keyword And Return Status    Deberia Estar En Inicio
+    IF    not ${ok}
+        ${url}=    Get Url
+        Skip If    'motivo=sesion' in $url    DEF-06: 401 justo después de un login correcto
+        Fail    Login roto, sin la firma de DEF-06: ${url}
+    END
 
 sigo en la página de login
     Deberia Estar En Login

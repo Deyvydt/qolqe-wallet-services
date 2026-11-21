@@ -8,12 +8,12 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 
 | ID | Título | Regla | Severidad | Prioridad | Pruebas que fallan |
 |---|---|---|---|---|---|
-| DEF-01 | Se acepta un suministro de 13 dígitos | R-G2-01 | Baja | Media | 1 |
+| DEF-01 | Se acepta un suministro de 13 dígitos | R-G2-01 | Baja | Media | 2 |
 | DEF-02 | Los días de atraso se cuentan con un día de más, así que se cobra mora el mismo día del vencimiento | R-G2-03 | **Alta** | **Alta** | 5 |
 | DEF-03 | Una deuda con 60 días de atraso pasa a cobranza y no se puede pagar | R-G2-04 | **Alta** | **Alta** | 2 |
 | DEF-04 | El débito automático paga deudas ya vencidas antes de activarlo, y sin mora | HU-G2-05 CA4 | Media | Media | 1 |
 | DEF-05 | Con ~1 200 usuarios simultáneos el servicio colapsa y no se recupera sin reinicio (rendimiento) | Requerimiento «Quincena Qolqe» | **Alta** | Media | estrés |
-| DEF-06 | La API responde antes de guardar los cambios: tras un login correcto la 1.ª petición puede dar 401 y las listas se repintan con datos viejos | Consistencia (login, afiliar, desafiliar, pagar) | **Alta** | **Alta** | 3 web (intermitente) |
+| DEF-06 | La API responde antes de guardar los cambios: tras un login correcto la 1.ª petición puede dar 401 y las listas se repintan con datos viejos | HU-N-02 CA1 (sesión activa) | **Alta** | **Alta** | 2 web (intermitente) |
 | DEF-07 | Cerrar sesión no invalida el token | HU-N-03 CA1 | **Alta** | **Alta** | 1 |
 | DEF-08 | Se acepta un PIN en secuencia descendente (`4321`) | RN-03 | Media | Media | 1 |
 | DEF-09 | Un login exitoso no reinicia el conteo de intentos fallidos | RN-04 | Media | Media | 1 |
@@ -155,16 +155,16 @@ Resultado positivo: desde que Schemathesis cubre las 9 operaciones `/api/servici
 
 | Campo | Valor |
 |---|---|
-| Módulo / requisito | Toda la API · `qolqe/dependencias.py` (`obtener_bd`) |
+| Módulo / requisito | Toda la API · `qolqe/bd.py` (`obtener_bd`) · regla HU-N-02 CA1 |
 | Severidad | **Alta**: el usuario ve datos viejos o es expulsado de la sesión |
 | Prioridad | **Alta** |
 | Entorno | Local: Windows 11, FastAPI 0.143, SQLite |
 | Pruebas que lo detectan | Web E2E con etiqueta `@DEF-06` (login por pantalla, refresco tras afiliar/pagar) |
 
 **Resultado esperado:** al recibir la respuesta de una escritura, un GET inmediato ya ve el cambio.
-**Resultado actual:** el commit se hace al cerrar la dependencia con `yield`, y FastAPI lo ejecuta *después* de enviar la respuesta. Reproducción por API (login y enseguida `GET /api/cuentas/me`): 109 de 200 respuestas fueron 401.
+**Resultado actual:** el commit se hace al cerrar la dependencia con `yield`, y FastAPI lo ejecuta *después* de enviar la respuesta. Es **intermitente y depende de la carga**. Reproducción por API (login y enseguida `GET /api/cuentas/me`): 109 de 200 respuestas fueron 401 el 20/11 con otros procesos corriendo en la máquina; repetida el 21/11 con la máquina libre, 0 de 200.
 **Efecto en la web:** tras un login correcto la primera petición puede dar 401 y la app manda a `/login?motivo=sesion`; tras afiliar, desafiliar o pagar, la lista se repinta con datos viejos.
-**Tratamiento en las pruebas:** los escenarios que lo exponen llevan `@defecto @DEF-06` y se marcan SKIP si fallan (`--skiponfailure defecto`); el resto verifica recargando la página.
+**Tratamiento en las pruebas:** el login por pantalla sale SKIP solo con la firma exacta del defecto (`/login?motivo=sesion`) y cualquier otro fallo es FAIL. La lista instantánea lleva `@defecto @DEF-06`. El resto inicia sesión por API y verifica recargando la página.
 
 ---
 
@@ -252,7 +252,7 @@ Detectados por `features/api/nucleo_comun.feature` (pytest-bdd, mismas condicion
 
 **Resultado obtenido:** 201, se debitan S/ 10.00 a Ana y se acreditan a Fabián.
 
-**Causa probable:** `_resolver_destino_qolqe` (`qolqe/api/transferencias.py`) busca el destino solo por celular, sin revisar `estado`. El código `DESTINO_INACTIVO` no existe en la API.
+**Causa probable:** `_resolver_destino_qolqe` (`qolqe/api/transferencias.py`) busca el destino solo por celular, sin revisar `estado`. El código `DESTINO_INACTIVO` existe (`qolqe/contrato.py`), pero la ruta de transferencias no lo aplica.
 
 ---
 

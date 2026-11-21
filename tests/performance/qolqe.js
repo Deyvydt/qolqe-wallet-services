@@ -17,7 +17,7 @@ const PIN = '2580';
 const ETAPAS = {
   carga: [[120, 100, 'rampa'], [600, 100, 'estable'], [60, 0, 'bajada']],
   pico: [[300, 300, 'rampa'], [600, 300, 'estable'], [60, 0, 'bajada']],
-  estres: [], // se arma abajo: escalones de 100 VUs
+  estres: [], // se arma abajo: escalones de 200 VUs
   resistencia: [[120, 100, 'rampa'], [1800, 100, 'estable'], [60, 0, 'bajada']],
   humo: [[10, 2, 'rampa'], [40, 2, 'estable'], [5, 0, 'bajada']],
   demo: [[20, 50, 'rampa'], [60, 50, 'estable'], [10, 0, 'bajada']], // demo en vivo (~1.5 min)

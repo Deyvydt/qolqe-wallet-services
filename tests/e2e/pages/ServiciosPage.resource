@@ -103,6 +103,7 @@ La Lista De Afiliaciones Deberia Contener
 
 La Lista De Afiliaciones No Deberia Contener
     [Arguments]    ${alias}
+    Get Text    ${SERV_CONTADOR}    contains    de 8    # espera a que la lista cargue
     Get Text    ${AFI_LISTA}    not contains    ${alias}
 
 El Contador De Afiliaciones Deberia Ser

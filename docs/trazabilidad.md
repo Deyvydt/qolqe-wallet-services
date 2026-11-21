@@ -3,11 +3,11 @@
 
 # Matriz de trazabilidad · G2 Pago de servicios
 
-Run [#10](https://github.com/Deyvydt/qolqe-wallet-services/actions/runs/44845599753) · commit [`201791d`](https://github.com/Deyvydt/qolqe-wallet-services/commit/201791dc6556318665d9e3785f2e63637b1493f0) · rama `entrega-final` · 20/11/2026 21:25 (hora de Lima)
+Run [#25](https://github.com/Deyvydt/qolqe-wallet-services/actions/runs/44861371954) · commit [`b5e23a3`](https://github.com/Deyvydt/qolqe-wallet-services/commit/b5e23a3f2b5cdc59e7cc260dbbb8b68593173e8f) · rama `main` · 21/11/2026 11:01 (hora de Lima)
 
 Cada fila une una **historia de usuario (HU)** con el **caso de prueba** que la verifica, el **nivel** donde se prueba y el **resultado de esta ejecución**.
 
-**Totales:** ✅ 142 pasan · ⚠️ 10 fallos esperados (defectos conocidos) · ❌ 0 fallan · ⏭️ 2 omitidas
+**Totales:** ✅ 250 pasan · ⚠️ 18 fallos esperados (defectos conocidos) · ❌ 0 fallan · ⏭️ 2 omitidas
 
 Fuentes: API ✔️ ejecutada · Web ✔️ ejecutada
 
@@ -41,9 +41,18 @@ Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@fun
 | E8 · PUT /api/servicios/afiliaciones/{id} | 4 | 4 | 0 | 0 | 6 | 6 | 0 | 0 | 10 |
 | E9 · DELETE /api/servicios/afiliaciones/{id} | 4 | 4 | 0 | 0 | 4 | 4 | 0 | 0 | 8 |
 | E10 · POST /api/pruebas/procesar-diario | 4 | 3 | 1 | 0 | 2 | 2 | 0 | 0 | 6 |
+| N1 · POST /api/usuarios | 17 | 16 | 1 | 0 | 4 | 4 | 0 | 0 | 21 |
+| N2 · POST /api/auth/login | 10 | 9 | 1 | 0 | 5 | 5 | 0 | 0 | 15 |
+| N3 · POST /api/auth/logout | 3 | 2 | 1 | 0 | 2 | 2 | 0 | 0 | 5 |
+| N4 · GET /api/cuentas/me | 1 | 1 | 0 | 0 | 4 | 4 | 0 | 0 | 5 |
+| N5 · PUT /api/cuentas/me | 10 | 10 | 0 | 0 | 2 | 2 | 0 | 0 | 12 |
+| N6 · GET /api/cuentas/me/saldo | 1 | 1 | 0 | 0 | 2 | 2 | 0 | 0 | 3 |
+| N7 · POST /api/cuentas/me/cierre | 5 | 5 | 0 | 0 | 2 | 2 | 0 | 0 | 7 |
+| N8 · POST /api/transferencias | 25 | 21 | 4 | 0 | 8 | 8 | 0 | 0 | 33 |
+| N9 · GET /api/transferencias/comision | 10 | 9 | 1 | 0 | 5 | 5 | 0 | 0 | 15 |
 | Otros (humo, métodos no declarados) | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 2 |
 | Web E2E | 30 | 28 | 0 | 0 | 0 | 0 | 0 | 0 | 30 |
-| **TOTAL** | 102 | 90 | 10 | 0 | 52 | 52 | 0 | 0 | 154 |
+| **TOTAL** | 184 | 164 | 18 | 0 | 86 | 86 | 0 | 0 | 270 |
 
 ## Resumen por HU
 
@@ -56,15 +65,15 @@ Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@fun
 | HU-G2-05 | 17 | api 15 · web 2 | 16 | 1 | 0 | 0 | [DEF-04](defectos.md#def-04-el-débito-automático-paga-deudas-que-ya-estaban-vencidas-y-sin-mora) | ✅ OK (con defectos conocidos) |
 | HU-G2-06 | 10 | api 7 · web 3 | 10 | 0 | 0 | 0 | — | ✅ OK |
 | HU-G2-07 | 14 | api 13 · web 1 | 14 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-01 | 1 | web 1 | 1 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-02 | 4 | web 4 | 4 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-03 | 1 | web 1 | 1 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-04 | 1 | web 1 | 1 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-05 | 1 | web 1 | 1 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-06 | 2 | web 2 | 2 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-07 | 2 | web 2 | 2 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-08 | 1 | web 1 | 1 | 0 | 0 | 0 | — | ✅ OK |
-| HU-N-09 | 2 | web 2 | 2 | 0 | 0 | 0 | — | ✅ OK |
+| HU-N-01 | 22 | api 21 · web 1 | 21 | 1 | 0 | 0 | [DEF-08](defectos.md#def-08-se-acepta-un-pin-en-secuencia-descendente) | ✅ OK (con defectos conocidos) |
+| HU-N-02 | 19 | api 15 · web 4 | 18 | 1 | 0 | 0 | [DEF-09](defectos.md#def-09-un-login-exitoso-no-reinicia-el-conteo-de-intentos-fallidos) | ✅ OK (con defectos conocidos) |
+| HU-N-03 | 6 | api 5 · web 1 | 5 | 1 | 0 | 0 | [DEF-07](defectos.md#def-07-cerrar-sesión-no-invalida-el-token) | ✅ OK (con defectos conocidos) |
+| HU-N-04 | 9 | api 8 · web 1 | 9 | 0 | 0 | 0 | — | ✅ OK |
+| HU-N-05 | 13 | api 12 · web 1 | 13 | 0 | 0 | 0 | — | ✅ OK |
+| HU-N-06 | 9 | api 7 · web 2 | 9 | 0 | 0 | 0 | — | ✅ OK |
+| HU-N-07 | 26 | api 24 · web 2 | 24 | 2 | 0 | 0 | [DEF-10](defectos.md#def-10-se-puede-transferir-a-una-cuenta-cerrada), [DEF-14](defectos.md#def-14-transferencias-simultáneas-superan-el-límite-diario) | ✅ OK (con defectos conocidos) |
+| HU-N-08 | 10 | api 9 · web 1 | 8 | 2 | 0 | 0 | [DEF-12](defectos.md#def-12-el-saldo-puede-quedar-negativo-en-una-transferencia-interbancaria), [DEF-13](defectos.md#def-13-las-transferencias-interbancarias-no-cuentan-para-el-límite-diario) | ✅ OK (con defectos conocidos) |
+| HU-N-09 | 17 | api 15 · web 2 | 16 | 1 | 0 | 0 | [DEF-11](defectos.md#def-11-la-comisión-interbancaria-no-usa-redondeo-comercial) | ✅ OK (con defectos conocidos) |
 | (sin HU) | 11 | api 1 · contrato 10 | 11 | 0 | 0 | 0 | — | ✅ OK |
 
 ## Matriz HU → caso → nivel → resultado
@@ -105,9 +114,9 @@ Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@fun
 | HU-G2-01 | una empresa que no está en el catálogo no tiene deudas consultables | CA1 | E1 | funcional | api | ✅ passed |
 | HU-G2-01 | Un suministro de menos de 8 dígitos es rechazado | CA1 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-01 | Un suministro sin deudas pendientes muestra un aviso | CA3 | Web E2E | funcional | web | ✅ passed |
+| HU-G2-01 | CP-W01 · Ana paga su recibo de luz (caso .robot) | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-01 | CP-W01 · Ana paga su recibo de luz y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
-| HU-G2-01 | CP-W01 · Ana paga su recibo de luz y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
-| HU-G2-01 | CP-W02 · Ana paga su recibo de agua | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
+| HU-G2-01 | CP-W02 · Ana paga su recibo de agua (caso .robot) | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-01 | CP-W02 · Ana paga su recibo de agua y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-02 | deuda en cobranza más de 60 días no se puede pagar | CA2 | E3 | funcional | api | ✅ passed |
 | HU-G2-02 | deuda id con tipo de dato inválido [{"deuda_id": "abc"}] | — | E3 | tecnico | api | ✅ passed |
@@ -131,9 +140,9 @@ Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@fun
 | HU-G2-02 | pago exitoso antes del vencimiento sin mora | CA1, CA4 | E3 | funcional | api | ✅ passed |
 | HU-G2-02 | La mora del comprobante respeta R-G2-03 (vence hoy, sin mora) | CA1 | Web E2E | funcional | web | ⏭️ skipped |
 | HU-G2-02 | La mora del comprobante respeta R-G2-03 (vencida hace 5 días, 2.5 % de mora) | CA1 | Web E2E | funcional | web | ⏭️ skipped |
+| HU-G2-02 | CP-W01 · Ana paga su recibo de luz (caso .robot) | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-02 | CP-W01 · Ana paga su recibo de luz y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
-| HU-G2-02 | CP-W01 · Ana paga su recibo de luz y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
-| HU-G2-02 | CP-W02 · Ana paga su recibo de agua | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
+| HU-G2-02 | CP-W02 · Ana paga su recibo de agua (caso .robot) | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-02 | CP-W02 · Ana paga su recibo de agua y ve el comprobante | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-G2-03 | afiliar sin token | — | E7 | tecnico | api | ✅ passed |
 | HU-G2-03 | afiliar un servicio se crea con el débito automático desactivado | CA1, CA4 | E7 | funcional | api | ✅ passed |
@@ -207,19 +216,135 @@ Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@fun
 | HU-G2-07 | ver mis pagos sin token | — | E4 | tecnico | api | ✅ passed |
 | HU-G2-07 | ver un comprobante sin token | — | E5 | tecnico | api | ✅ passed |
 | HU-G2-07 | Ana filtra sus pagos por servicio afiliado | CA1 | Web E2E | funcional | web | ✅ passed |
+| HU-N-01 | la respuesta del registro cumple el contrato y no expone el pin ni el dni | — | N1 | tecnico | api | ✅ passed |
+| HU-N-01 | registro con celular que no cumple rn02 caso [10 digitos-9112223334] | CA3 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con celular que no cumple rn02 caso [8 digitos-91122233] | CA3 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con celular que no cumple rn02 caso [no empieza con 9-811222333] | CA3 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con correo inválido o ya usado caso [sin arroba-lucia.correo.pe-422-CORREO_INVALIDO] | CA5 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con correo inválido o ya usado caso [sin dominio-lucia@-422-CORREO_INVALIDO] | CA5 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con correo inválido o ya usado caso [usado, otras mayusculas-ANA.TORRES@correo.pe-409-CORREO_REGISTRADO] | CA5 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con cuerpo inválido según el contrato caso [JSON mal formado-{"dni": "61234567",] | — | N1 | tecnico | api | ✅ passed |
+| HU-N-01 | registro con cuerpo inválido según el contrato caso [nombres de 1 letra-{"dni": "61234567", "nombres": "L", "celular": "911222333", "pin": "5173"}] | — | N1 | tecnico | api | ✅ passed |
+| HU-N-01 | registro con cuerpo inválido según el contrato caso [sin campos-{}] | — | N1 | tecnico | api | ✅ passed |
+| HU-N-01 | registro con dni que no cumple rn01 caso [7 digitos-6123456] | CA2 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con dni que no cumple rn01 caso [9 digitos-612345678] | CA2 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con dni que no cumple rn01 caso [con letras-6123456A] | CA2 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con pin que no cumple rn03 caso [3 digitos-517] | CA4 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con pin que no cumple rn03 caso [5 digitos-51734] | CA4 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con pin que no cumple rn03 caso [secuencia ascendente-1234] | CA4 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con pin que no cumple rn03 caso [secuencia descendente-4321] | CA4 | N1 | funcional | api | ⚠️ xfailed → [DEF-08](defectos.md#def-08-se-acepta-un-pin-en-secuencia-descendente) |
+| HU-N-01 | registro con pin que no cumple rn03 caso [todos iguales-1111] | CA4 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con un celular ya registrado caso [cuenta activa-987654321] | CA3 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro con un celular ya registrado caso [cuenta cerrada-934567812] | CA3 | N1 | funcional | api | ✅ passed |
+| HU-N-01 | registro exitoso con saldo cero y sms de bienvenida | CA1, CA6 | N1 | funcional | api | ✅ passed |
 | HU-N-01 | Un visitante crea su cuenta y la usa con saldo S/ 0.00 | CA1 | Web E2E | funcional | web | ✅ passed |
+| HU-N-02 | credenciales erróneas dan un mensaje genérico caso [PIN incorrecto-987654321-9999] | CA2 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | credenciales erróneas dan un mensaje genérico caso [celular inexistente-911999999-4826] | CA2 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | dos intentos fallidos todavía no bloquean la cuenta | CA3 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | durante el bloqueo ni el pin correcto permite ingresar | CA4 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | el tercer intento fallido consecutivo bloquea la cuenta y avisa por sms | CA3 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | ingresar desde un dispositivo desconocido envía un sms de alerta | CA6 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | la respuesta del login cumple el contrato | — | N2 | tecnico | api | ✅ passed |
+| HU-N-02 | login con cuerpo inválido según el contrato caso [PIN num\xe9rico-{"celular": "987654321", "pin": 4826}] | — | N2 | tecnico | api | ✅ passed |
+| HU-N-02 | login con cuerpo inválido según el contrato caso [sin PIN-{"celular": "987654321"}] | — | N2 | tecnico | api | ✅ passed |
+| HU-N-02 | login con cuerpo inválido según el contrato caso [sin celular-{"pin": "4826"}] | — | N2 | tecnico | api | ✅ passed |
+| HU-N-02 | login correcto entrega un token de 30 minutos y una sesión | CA1 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | método http no permitido en el login | — | N2 | tecnico | api | ✅ passed |
+| HU-N-02 | pasados los 15 minutos de bloqueo se puede ingresar | CA4 | N2 | funcional | api | ✅ passed |
+| HU-N-02 | un login exitoso reinicia el conteo de intentos fallidos | CA3 | N2 | funcional | api | ⚠️ xfailed → [DEF-09](defectos.md#def-09-un-login-exitoso-no-reinicia-el-conteo-de-intentos-fallidos) |
+| HU-N-02 | una cuenta cerrada no puede iniciar sesión | CA5 | N2 | funcional | api | ✅ passed |
 | HU-N-02 | Ana inicia sesión con sus credenciales correctas | CA1 | Web E2E | funcional | web | ✅ passed |
 | HU-N-02 | Credenciales erróneas (PIN incorrecto) muestran un mensaje genérico | CA2 | Web E2E | funcional | web | ✅ passed |
 | HU-N-02 | Credenciales erróneas (celular inexistente) muestran un mensaje genérico | CA2 | Web E2E | funcional | web | ✅ passed |
 | HU-N-02 | La cuenta se bloquea al tercer intento fallido y ni el PIN correcto permite ingresar | CA3, CA4 | Web E2E | funcional | web | ✅ passed |
+| HU-N-03 | cerrar sesión exige un token válido caso [token basura-abc.def.ghi] | — | N3 | tecnico | api | ✅ passed |
+| HU-N-03 | cerrar sesión exige un token válido caso [token vacio-] | — | N3 | tecnico | api | ✅ passed |
+| HU-N-03 | cerrar sesión responde 204 | CA1 | N3 | funcional | api | ✅ passed |
+| HU-N-03 | cerrar una sesión no afecta mis otras sesiones activas | CA2 | N3 | funcional | api | ✅ passed |
+| HU-N-03 | después de cerrar sesión el token ya no es válido | CA1 | N3 | funcional | api | ⚠️ xfailed → [DEF-07](defectos.md#def-07-cerrar-sesión-no-invalida-el-token) |
 | HU-N-03 | Ana cierra sesión y ya no puede abrir páginas privadas | CA1 | Web E2E | funcional | web | ✅ passed |
+| HU-N-04 | el perfil con un token inválido responde 401 | CA3 | N4 | tecnico | api | ✅ passed |
+| HU-N-04 | el perfil con un token vencido 31 minutos responde 401 | CA3 | N4 | tecnico | api | ✅ passed |
+| HU-N-04 | el perfil cumple el contrato y no expone el pin | — | N4 | tecnico | api | ✅ passed |
+| HU-N-04 | el perfil sin token responde 401 | CA3 | N4 | tecnico | api | ✅ passed |
+| HU-N-04 | el saldo cumple el contrato | — | N6 | tecnico | api | ✅ passed |
+| HU-N-04 | el saldo sin token responde 401 | CA3 | N6 | tecnico | api | ✅ passed |
+| HU-N-04 | veo mi perfil con el dni enmascarado | CA2 | N4 | funcional | api | ✅ passed |
+| HU-N-04 | veo mi saldo disponible en soles | CA1 | N6 | funcional | api | ✅ passed |
 | HU-N-04 | Ana ve su saldo y su perfil con el DNI enmascarado | CA1, CA2 | Web E2E | funcional | web | ✅ passed |
+| HU-N-05 | editar con datos inválidos caso [correo de otra cuenta activa-{"correo": "BRUNO.DIAZ@correo.pe"}-409-CORREO_REGISTRADO] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | editar con datos inválidos caso [correo sin dominio-{"correo": "ana@"}-422-CORREO_INVALIDO] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | editar con datos inválidos caso [nombres de 1 caracter-{"nombres": "A"}-422-PERFIL_INVALIDO] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | editar con datos inválidos caso [nombres solo espacios-{"nombres": "     "}-422-PERFIL_INVALIDO] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | editar el perfil con un tipo de dato inválido responde 422 | — | N5 | tecnico | api | ✅ passed |
+| HU-N-05 | editar el perfil sin token responde 401 | — | N5 | tecnico | api | ✅ passed |
+| HU-N-05 | edito mis nombres y mi correo y recibo un sms de aviso | CA1, CA3 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | el dni y el celular enviados al editar se ignoran | CA2 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | longitud de los nombres de 2 a 80 caracteres caso [2 (limite)-Al-200--] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | longitud de los nombres de 2 a 80 caracteres caso [80 (limite)-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-200--] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | longitud de los nombres de 2 a 80 caracteres caso [81 (invalido)-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-422-PERFIL_INVALIDO] | CA1 | N5 | funcional | api | ✅ passed |
+| HU-N-05 | puedo quitar mi correo enviándolo vacío | CA1 | N5 | funcional | api | ✅ passed |
 | HU-N-05 | Ana actualiza sus nombres y su correo | CA1 | Web E2E | funcional | web | ✅ passed |
+| HU-N-06 | cerrar la cuenta con un pin incorrecto | CA1 | N7 | funcional | api | ✅ passed |
+| HU-N-06 | cerrar la cuenta sin pin responde 422 | — | N7 | tecnico | api | ✅ passed |
+| HU-N-06 | cerrar la cuenta sin token responde 401 | — | N7 | tecnico | api | ✅ passed |
+| HU-N-06 | cierro mi cuenta con saldo cero y ya no puedo usarla | CA1, CA4 | N7 | funcional | api | ✅ passed |
+| HU-N-06 | no se cierra la cuenta con solicitudes de dinero pendientes | CA3 | N7 | funcional | api | ✅ passed |
+| HU-N-06 | solo se cierra con saldo exactamente s 000 saldo [0.01] | CA2 | N7 | funcional | api | ✅ passed |
+| HU-N-06 | solo se cierra con saldo exactamente s 000 saldo [1500.00] | CA2 | N7 | funcional | api | ✅ passed |
 | HU-N-06 | Ana no puede cerrar su cuenta mientras tenga saldo | CA2 | Web E2E | funcional | web | ✅ passed |
 | HU-N-06 | Un cliente con saldo S/ 0.00 cierra su cuenta y ya no puede ingresar | CA1, CA4 | Web E2E | funcional | web | ✅ passed |
+| HU-N-07 | destino no permitido según rn07 caso [a mi mismo-987654321-422-TRANSFERENCIA_A_SI_MISMO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | destino no permitido según rn07 caso [celular invalido-812345678-422-CELULAR_INVALIDO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | destino no permitido según rn07 caso [celular no registrado-911999999-404-DESTINO_NO_REGISTRADO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | el comprobante de la transferencia cumple el contrato | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | el saldo debe cubrir el monto caso [igual al saldo-50.00-201--] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | el saldo debe cubrir el monto caso [supera por 0.01-50.01-422-SALDO_INSUFICIENTE] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | la suma del día no puede superar el límite diario | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [3 decimales-10.001-422-MONTO_INVALIDO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [cero-0.00-422-MONTO_INVALIDO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [maximo 500.00-500.00-201--] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [minimo 0.01-0.01-201--] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [negativo--5.00-422-MONTO_INVALIDO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | monto de la transferencia según rn05 caso [sobre el maximo-500.01-422-MONTO_INVALIDO] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | no puedo transferir usando un contacto de otro usuario | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | no se puede transferir a una cuenta cerrada | CA2 | N8 | funcional | api | ⚠️ xfailed → [DEF-10](defectos.md#def-10-se-puede-transferir-a-una-cuenta-cerrada) |
+| HU-N-07 | transferencia a otro usuario qolqe sin comisión | CA3, CA4 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | transferencia con cuerpo inválido caso [descripcion de 61-{"celular_destino": "912345678", "monto": "10.00", "descripcion": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}-SOLICITUD_INVALIDA] | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | transferencia con cuerpo inválido caso [monto no numerico-{"celular_destino": "912345678", "monto": "diez"}-SOLICITUD_INVALIDA] | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | transferencia con cuerpo inválido caso [sin destino-{"monto": "10.00"}-DESTINO_REQUERIDO] | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | transferencia con cuerpo inválido caso [sin monto-{"celular_destino": "912345678"}-SOLICITUD_INVALIDA] | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | transferencia con cuerpo inválido caso [tipo desconocido-{"tipo": "OTRO", "celular_destino": "912345678", "monto": "10.00"}-SOLICITUD_INVALIDA] | — | N8 | tecnico | api | ✅ passed |
+| HU-N-07 | transferencia eligiendo un contacto frecuente | CA1 | N8 | funcional | api | ✅ passed |
+| HU-N-07 | transferencias simultáneas no superan el límite diario | CA5 | N8 | funcional | api | ⚠️ xfailed → [DEF-14](defectos.md#def-14-transferencias-simultáneas-superan-el-límite-diario) |
+| HU-N-07 | transferir sin token responde 401 | — | N8 | tecnico | api | ✅ passed |
 | HU-N-07 | Ana transfiere a Bruno, ve la comisión antes de confirmar y recibe el comprobante | CA3, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-N-07 | No se puede transferir a un celular que no está registrado | CA2 | Web E2E | funcional | web | ✅ passed |
+| HU-N-08 | cci que no tiene 20 dígitos caso [19 digitos-0021910012345678901] | CA1 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | cci que no tiene 20 dígitos caso [21 digitos-002191001234567890123] | CA1 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | cci que no tiene 20 dígitos caso [con letras-0021910012345678901A] | CA1 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | comisión interbancaria con mínimo y máximo caso [bajo el minimo-20.00-1.00] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | comisión interbancaria con mínimo y máximo caso [sobre el maximo-400.00-5.00] | CA2 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | el saldo debe cubrir el monto más la comisión interbancaria | CA2 | N8 | funcional | api | ⚠️ xfailed → [DEF-12](defectos.md#def-12-el-saldo-puede-quedar-negativo-en-una-transferencia-interbancaria) |
+| HU-N-08 | las transferencias interbancarias cuentan para el límite diario | CA2 | N8 | funcional | api | ⚠️ xfailed → [DEF-13](defectos.md#def-13-las-transferencias-interbancarias-no-cuentan-para-el-límite-diario) |
+| HU-N-08 | transferencia interbancaria con comisión y cci enmascarado | CA2, CA3 | N8 | funcional | api | ✅ passed |
+| HU-N-08 | transferencia interbancaria sin cci | CA1 | N8 | funcional | api | ✅ passed |
 | HU-N-08 | Ana transfiere a otro banco y paga la comisión de 1.5 % | CA2 | Web E2E | funcional | web | ✅ passed |
+| HU-N-09 | la simulación cumple el contrato | — | N9 | tecnico | api | ✅ passed |
+| HU-N-09 | simular con parámetros inválidos según el contrato caso [monto no numero-monto=diez] | — | N9 | tecnico | api | ✅ passed |
+| HU-N-09 | simular con parámetros inválidos según el contrato caso [sin monto-tipo=QOLQE] | — | N9 | tecnico | api | ✅ passed |
+| HU-N-09 | simular con parámetros inválidos según el contrato caso [tipo desconocido-monto=10&tipo=OTRO] | — | N9 | tecnico | api | ✅ passed |
+| HU-N-09 | simular con un monto inválido caso [3 decimales-10.005] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular con un monto inválido caso [cero-0] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular con un monto inválido caso [sobre el maximo-500.01] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [1.5 %-100.00-1.50-101.50] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [justo en el maximo-333.33-5.00-338.33] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [justo en el minimo-66.67-1.00-67.67] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [maximo S/ 5.00-500.00-5.00-505.00] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [minimo S/ 1.00-20.00-1.00-21.00] | CA1 | N9 | funcional | api | ✅ passed |
+| HU-N-09 | simular la comisión interbancaria caso [redondeo comercial 0.005-71.00-1.07-72.07] | CA1 | N9 | funcional | api | ⚠️ xfailed → [DEF-11](defectos.md#def-11-la-comisión-interbancaria-no-usa-redondeo-comercial) |
+| HU-N-09 | simular la comisión sin token responde 401 | — | N9 | tecnico | api | ✅ passed |
+| HU-N-09 | simular una transferencia qolqe no tiene comisión ni mueve el saldo | CA1 | N9 | funcional | api | ✅ passed |
 | HU-N-09 | Ana transfiere a Bruno, ve la comisión antes de confirmar y recibe el comprobante | CA3, CA4 | Web E2E | funcional | web | ✅ passed |
 | HU-N-09 | Ana transfiere a otro banco y paga la comisión de 1.5 % | CA2 | Web E2E | funcional | web | ✅ passed |
 | (sin HU) | la app responde | — | Otros (humo, métodos no declarados) | tecnico | api | ✅ passed |

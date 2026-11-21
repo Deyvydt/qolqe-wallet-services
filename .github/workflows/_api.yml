@@ -4,7 +4,7 @@
 #   1. descarga el código e instala Python y las librerías de prueba;
 #   2. corre pytest: escenarios Gherkin (pytest-bdd) funcionales y técnicos de E1..E10. El contrato
 #      (Schemathesis) corre ANTES, en _contrato.yml;
-#      los 9 fallos conocidos están marcados como "fallo esperado" con su defecto (DEF-01..04);
+#      los defectos conocidos (DEF-01..04 y DEF-07..14) están como "fallo esperado" estricto;
 #   3. deja la evidencia: JUnit XML (para herramientas), HTML (para personas) y un
 #      resumen en la página del run; y sube todo como artefacto descargable.
 # No hace falta levantar la app: pytest usa TestClient y Schemathesis la levanta sola.
