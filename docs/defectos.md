@@ -20,11 +20,11 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 
 | Campo | Valor |
 |---|---|
-| Módulo / regla | G2 · HU-G2-01 CA1 · R-G2-01 (8 a 12 dígitos) |
+| Módulo / regla | G2 · HU-G2-01 CA1 · HU-G2-03 CA1 · R-G2-01 (8 a 12 dígitos) |
 | Severidad | Baja |
 | Prioridad | Media |
 | Entorno | Ver arriba |
-| Prueba que lo detecta | `tests/api/test_g2_pago_servicios.py::test_longitud_del_código_de_suministro_rg201_8_a_12_dígitos[13 digitos (invalido)...]` |
+| Pruebas que lo detectan | `tests/api/test_g2_pago_servicios.py::test_longitud_del_código_de_suministro_rg201_8_a_12_dígitos[13 digitos (invalido)...]` (E2) y `test_el_suministro_de_la_afiliación_cumple_rg201[13 digitos (invalido)...]` (E7: `POST /api/servicios/afiliaciones` con 13 dígitos responde 404 `SUMINISTRO_NO_ENCONTRADO` en vez de 422 `AFILIACION_INVALIDA`; misma causa: `validar_suministro` permite 12 + 1) |
 
 **Pasos para reproducir**
 1. Iniciar sesión como Ana (987654321 / 4826).
@@ -135,6 +135,7 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 | ID | Hallazgo | Clasificación |
 |---|---|---|
 | OBS-01 | `GET /api/servicios/pagos?afiliacion_id=-1072...` (entero muy grande) responde **422**, pero el contrato declara `integer` sin rango. | Defecto **del contrato**: falta documentar el rango (`minimum`/`maximum`). Severidad baja. |
-| OBS-02 | `OPTIONS /api/servicios/pagos` responde `Allow: POST`, aunque la ruta también acepta `GET`. | Convención HTTP (cabecera `Allow` incompleta). Observación de baja severidad, la produce el framework. |
+| OBS-02 | `OPTIONS /api/servicios/pagos` responde `Allow: POST`, aunque la ruta también acepta `GET` (Schemathesis lo marca en 3 rutas de `/api/servicios/*` con dos métodos). | Convención HTTP (cabecera `Allow` incompleta). Observación de baja severidad, la produce el framework. |
+| OBS-03 | "API rejected schema-compliant request": `POST /api/servicios/pagos {"deuda_id": 7}` responde 422 `DEUDA_EN_COBRANZA`. | **No es defecto**: es la regla R-G2-04 (deuda con más de 60 días). El contrato no puede expresar reglas de negocio; el clasificador lo cuenta como "Válido según el contrato" con respuesta correcta. |
 
-Resultado positivo: en 423 solicitudes generadas **no hubo ningún 500**.
+Resultado positivo: desde que Schemathesis cubre las 9 operaciones `/api/servicios/*` (E1..E9) genera ~900–1 200 solicitudes por ejecución y **no hubo ningún 500**.

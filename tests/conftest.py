@@ -5,8 +5,10 @@ PARA QUÉ:
      ni modifican los datos de la app que usas en la demo (datos/qolqe.db). También activa
      el modo prueba, que habilita la API de soporte (/api/pruebas/*).
   2. Al terminar cada ejecución imprime en la terminal el RESUMEN AUTOMÁTICO:
-     - Funcional (los .feature): casos por HU y por técnica, y cada fallo con su defecto.
-     - Técnico (Schemathesis): casos generados por validación de entrada.
+     - Reporte total: endpoint (E1..E10) × tipo (funcional / técnico, por las etiquetas
+       @funcional y @tecnico de cada escenario) × resultado, con totales.
+     - Por HU (funcional / técnico) y por técnica, y cada fallo con su defecto.
+     - Técnico (Schemathesis): casos generados por endpoint y validación de entrada.
      Los números salen de ESA ejecución: si el código cambia, el resumen cambia.
 """
 import os
@@ -35,14 +37,23 @@ DEFECTOS_CONOCIDOS = [
     ("[60 dias, aun se puede pagar-", "DEF-03"),
     ("ya_vencidas_antes_de_activar", "DEF-04"),
 ]
-TECNICAS = ["camino-feliz", "particion", "valor-limite", "efecto", "concurrencia", "seguridad", "tecnico", "contrato", "schemathesis"]
+TECNICAS = ["camino-feliz", "particion", "valor-limite", "efecto", "concurrencia", "seguridad", "contrato", "schemathesis"]
+# Endpoints del módulo G2 (docs/requisitos.md, Anexo A) + el proceso diario. Etiqueta @E<n> en cada escenario.
+ENDPOINTS = {
+    "E1": "GET /api/servicios/empresas",
+    "E2": "GET /api/servicios/deudas",
+    "E3": "POST /api/servicios/pagos",
+    "E4": "GET /api/servicios/pagos",
+    "E5": "GET /api/servicios/pagos/{codigo}",
+    "E6": "GET /api/servicios/afiliaciones",
+    "E7": "POST /api/servicios/afiliaciones",
+    "E8": "PUT /api/servicios/afiliaciones/{id}",
+    "E9": "DELETE /api/servicios/afiliaciones/{id}",
+    "E10": "POST /api/pruebas/procesar-diario",
+}
 
 _etiquetas: dict[str, set[str]] = {}
 _resultados: dict[str, dict] = {}
-
-
-def pytest_configure(config):
-    config.addinivalue_line("markers", "schemathesis: prueba técnica generada con Schemathesis desde el contrato OpenAPI")
 
 
 def pytest_collection_modifyitems(items):
@@ -79,32 +90,75 @@ def _nombre(nodeid: str) -> str:
     return nodeid.split("::")[-1].removeprefix("test_").replace("_", " ")
 
 
-def _resumen_funcional(tr):
-    funcionales = {n: r for n, r in _resultados.items() if "schemathesis" not in _etiquetas.get(n, set())}
-    if not funcionales:
+def tipo_de_caso(etiquetas: set[str]) -> str:
+    """Funcional o técnico, según la etiqueta @funcional / @tecnico del escenario."""
+    return "tecnico" if "tecnico" in etiquetas else ("funcional" if "funcional" in etiquetas else "sin tipo")
+
+
+def endpoint_de_caso(etiquetas: set[str]) -> str:
+    return next((e for e in sorted(etiquetas, key=lambda x: (len(x), x)) if e in ENDPOINTS), "Otros (humo, métodos no declarados)")
+
+
+def _resumen_por_endpoint(tr):
+    """Reporte total: endpoint × (funcional / técnico) × resultado (pasa / esperado / falla)."""
+    if not _resultados:
         return
-    tr.write_sep("=", "RESUMEN FUNCIONAL · pytest-bdd · features/*.feature")
-    por_hu = defaultdict(lambda: [0, 0, 0])
-    por_tecnica = defaultdict(lambda: [0, 0, 0])
-    for nodeid, r in funcionales.items():
+    tr.write_sep("=", "REPORTE TOTAL DE ESCENARIOS · endpoint × tipo × resultado")
+    tabla = defaultdict(lambda: {"funcional": [0, 0, 0], "tecnico": [0, 0, 0], "sin tipo": [0, 0, 0]})
+    for nodeid, r in _resultados.items():
         etiquetas = _etiquetas.get(nodeid, set())
-        hu = sorted(e for e in etiquetas if e.startswith("HU-")) or ["(sin HU: humo)"]
+        indice = {"passed": 0, "xfailed": 1}.get(r["estado"], 2)
+        tabla[endpoint_de_caso(etiquetas)][tipo_de_caso(etiquetas)][indice] += 1
+    tr.write_line(f"  {'Endpoint':<50}{'Funcional':>11}{'Técnico':>11}{'Total':>7}{'Pasan':>7}{'Esperado':>10}{'Fallan':>8}")
+    totales = {"funcional": [0, 0, 0], "tecnico": [0, 0, 0], "sin tipo": [0, 0, 0]}
+    orden = [*ENDPOINTS, *sorted(set(tabla) - set(ENDPOINTS))]
+    for endpoint in (e for e in orden if e in tabla):
+        fila = tabla[endpoint]
+        for tipo in totales:
+            totales[tipo] = [a + b for a, b in zip(totales[tipo], fila[tipo])]
+        _fila_endpoint(tr, f"{endpoint} {ENDPOINTS.get(endpoint, '')}".strip(), fila)
+    _fila_endpoint(tr, "TOTAL", totales)
+    tr.write_line("  (Funcional/Técnico = casos de cada tipo; Esperado = fallo esperado por un defecto ya reportado)")
+    tr.write_line("")
+
+
+def _fila_endpoint(tr, nombre, fila):
+    ok, xf, ko = (fila["funcional"][i] + fila["tecnico"][i] + fila["sin tipo"][i] for i in range(3))
+    tr.write_line(f"  {nombre[:49]:<50}{sum(fila['funcional']):>11}{sum(fila['tecnico']):>11}"
+                  f"{ok + xf + ko:>7}{ok:>7}{xf:>10}{ko:>8}")
+
+
+def _resumen_funcional(tr):
+    casos = _resultados
+    if not casos:
+        return
+    tr.write_sep("=", "RESUMEN POR HISTORIA DE USUARIO · pytest-bdd (features/api) + Schemathesis")
+    por_hu = defaultdict(lambda: [0, 0, 0])
+    por_tipo_hu = defaultdict(lambda: defaultdict(int))
+    por_tecnica = defaultdict(lambda: [0, 0, 0])
+    for nodeid, r in casos.items():
+        etiquetas = _etiquetas.get(nodeid, set())
+        hu = sorted(e for e in etiquetas if e.startswith("HU-")) or ["(sin HU)"]
         indice = {"passed": 0, "xfailed": 1}.get(r["estado"], 2)
         por_hu[hu[0]][indice] += 1
+        por_tipo_hu[hu[0]][tipo_de_caso(etiquetas)] += 1
         for tecnica in TECNICAS:
             if tecnica in etiquetas:
                 por_tecnica[tecnica][indice] += 1
-    tr.write_line(f"  {'Historia de usuario':<22}{'Casos':>7}{'Pasan':>7}{'Esperado':>10}{'Fallan':>8}")
+    tr.write_line(f"  {'Historia de usuario':<22}{'Funcional':>11}{'Técnico':>9}{'Casos':>7}{'Pasan':>7}{'Esperado':>10}{'Fallan':>8}")
     for hu in sorted(por_hu):
         ok, xf, ko = por_hu[hu]
-        tr.write_line(f"  {hu:<22}{ok + xf + ko:>7}{ok:>7}{xf:>10}{ko:>8}")
+        tr.write_line(f"  {hu:<22}{por_tipo_hu[hu]['funcional']:>11}{por_tipo_hu[hu]['tecnico']:>9}"
+                      f"{ok + xf + ko:>7}{ok:>7}{xf:>10}{ko:>8}")
     ok, xf, ko = (sum(v[i] for v in por_hu.values()) for i in range(3))
-    tr.write_line(f"  {'TOTAL':<22}{ok + xf + ko:>7}{ok:>7}{xf:>10}{ko:>8}")
+    funcionales = sum(d["funcional"] for d in por_tipo_hu.values())
+    tecnicos = sum(d["tecnico"] for d in por_tipo_hu.values())
+    tr.write_line(f"  {'TOTAL':<22}{funcionales:>11}{tecnicos:>9}{ok + xf + ko:>7}{ok:>7}{xf:>10}{ko:>8}")
     tr.write_line("  (Esperado = fallo esperado: la prueba detecta un defecto ya reportado)")
     tr.write_line("")
     tr.write_line("  Por técnica: " + " · ".join(
         f"{t} {v[0]}/{sum(v)}" for t, v in ((t, por_tecnica[t]) for t in TECNICAS) if sum(v)))
-    fallos = [(n, r) for n, r in funcionales.items() if r["estado"] != "passed"]
+    fallos = [(n, r) for n, r in casos.items() if r["estado"] != "passed"]
     if fallos:
         tr.write_line("")
         tr.write_line("  Fallos esperados (cada uno evidencia un defecto) y fallos nuevos:")
@@ -125,16 +179,19 @@ def _resumen_tecnico(tr, config):
     datos = getattr(config, "resumen_tecnico", None)
     if datos is None:
         return
+    from clasificacion_contrato import nombre_endpoint, texto_correcto
     casos = datos["casos"]
     tr.write_sep("=", f"RESUMEN TÉCNICO · Schemathesis · {datos['operacion']}")
     tr.write_line(f"  {len(casos)} casos generados desde el contrato OpenAPI · errores 500: "
                   f"{sum(1 for c in casos if c['estado'] >= 500)} · modo {datos['semilla']}")
-    tr.write_line("")
-    tr.write_line(f"  {'Validación de entrada':<36}{'Casos':>6}  {'¿Correcto?':<12}Filas en el reporte")
+    actual = None
     for f in datos["filas"]:
-        estado = "No generado" if f["correcto"] is None else ("Sí" if f["correcto"] else "NO")
-        filas = ", ".join(f"#{n}" for n in f["filas"][:12]) + (" …" if len(f["filas"]) > 12 else "")
-        tr.write_line(f"  {f['validacion']:<36}{f['casos']:>6}  {estado:<12}{filas}")
+        if f["endpoint"] != actual:
+            actual = f["endpoint"]
+            tr.write_line("")
+            tr.write_line(f"  {nombre_endpoint(actual)}")
+        filas = ", ".join(f"#{n}" for n in f["filas"][:8]) + (" …" if len(f["filas"]) > 8 else "")
+        tr.write_line(f"    {f['validacion']:<40}{f['casos']:>6}  {texto_correcto(f):<14}{filas}")
     if datos["observaciones"]:
         tr.write_line("")
         tr.write_line("  Observaciones de Schemathesis (no rompen una HU): " + " · ".join(datos["observaciones"]))
@@ -142,5 +199,6 @@ def _resumen_tecnico(tr, config):
 
 
 def pytest_terminal_summary(terminalreporter, config):
+    _resumen_por_endpoint(terminalreporter)
     _resumen_funcional(terminalreporter)
     _resumen_tecnico(terminalreporter, config)

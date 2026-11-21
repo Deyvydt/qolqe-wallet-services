@@ -18,7 +18,7 @@ Característica: HU-G2-02 Pagar una deuda (Prioridad Alta)
     Dado que los datos de Qolqe están reiniciados
     Y que inicié sesión como "987654321" con PIN "4826"
 
-  @CA1 @CA4 @camino-feliz
+  @funcional @CA1 @CA4 @camino-feliz @E3
   Escenario: Pago exitoso antes del vencimiento, sin mora
     Cuando pago la deuda "ELECTRO" "10000001"
     Entonces la respuesta tiene estado 201
@@ -26,7 +26,7 @@ Característica: HU-G2-02 Pagar una deuda (Prioridad Alta)
     Y el comprobante tiene los campos "codigo_operacion, empresa, suministro, periodo, monto, mora, total, saldo"
     Y mi saldo es "1380.00"
 
-  @CA1 @R-G2-03 @valor-limite
+  @funcional @CA1 @R-G2-03 @valor-limite @E3
   Esquema del escenario: Mora de 0.5 % diario después del vencimiento, con tope de 10 %
     Dado que el reloj está <dias> días después del vencimiento de la deuda "ELECTRO" "10000001"
     Cuando pago la deuda "ELECTRO" "10000001"
@@ -43,7 +43,7 @@ Característica: HU-G2-02 Pagar una deuda (Prioridad Alta)
       | 21 dias, el tope no se supera  | 21   | 12.00 | 132.00 |
       | 60 dias, aun se puede pagar    | 60   | 12.00 | 132.00 |
 
-  @CA1 @RN-08 @valor-limite
+  @funcional @CA1 @RN-08 @valor-limite @E3
   Esquema del escenario: El saldo debe cubrir el total (monto + mora)
     Dado que mi saldo es "<saldo>"
     Cuando pago la deuda "ELECTRO" "10000001"
@@ -55,50 +55,50 @@ Característica: HU-G2-02 Pagar una deuda (Prioridad Alta)
       | un centimo menos (falla) | 119.99 | 422    | SALDO_INSUFICIENTE | 119.99      |
       | saldo exacto (pasa)      | 120.00 | 201    | -                  | 0.00        |
 
-  @CA2
+  @funcional @CA2 @E3
   Escenario: Deuda inexistente
     Cuando pago la deuda con id 999999
     Entonces la respuesta tiene estado 404 y código "DEUDA_NO_ENCONTRADA"
 
-  @CA2 @efecto
+  @funcional @CA2 @efecto @E3
   Escenario: Deuda ya pagada no se cobra dos veces
     Dado que pagué la deuda "ELECTRO" "10000001"
     Cuando pago otra vez la misma deuda
     Entonces la respuesta tiene estado 409 y código "DEUDA_YA_PAGADA"
     Y mi saldo es "1380.00"
 
-  @CA2 @R-G2-04 @efecto
+  @funcional @CA2 @R-G2-04 @efecto @E3
   Escenario: Deuda en cobranza (más de 60 días) no se puede pagar
     Dado que el reloj está 61 días después del vencimiento de la deuda "ELECTRO" "10000001"
     Cuando pago la deuda "ELECTRO" "10000001"
     Entonces la respuesta tiene estado 422 y código "DEUDA_EN_COBRANZA"
     Y mi saldo es "1500.00"
 
-  @CA3 @concurrencia
+  @funcional @CA3 @concurrencia @E3
   Escenario: Dos pagos simultáneos de la misma deuda, solo uno es exitoso
     Cuando envío 2 pagos simultáneos de la deuda "ELECTRO" "10000001"
     Entonces solo 1 pago es exitoso y el otro responde 409
     Y mi saldo es "1380.00"
 
-  @CA4 @RN-10 @efecto
+  @funcional @CA4 @RN-10 @efecto @E3
   Escenario: El pago genera un movimiento con el mismo código de operación
     Cuando pago la deuda "ELECTRO" "10000001"
     Entonces la respuesta tiene estado 201
     Y existe un movimiento con el código de operación del comprobante
 
-  @HU-G2-07 @CA2 @seguridad
+  @tecnico @HU-G2-07 @CA2 @seguridad @E5
   Escenario: El comprobante de un pago de otro usuario responde 404
     Dado que pagué la deuda "ELECTRO" "10000001"
     Y que inicié sesión como "912345678" con PIN "7391"
     Cuando consulto el comprobante de ese pago
     Entonces la respuesta tiene estado 404 y código "PAGO_NO_ENCONTRADO"
 
-  @seguridad
+  @tecnico @seguridad @E3
   Escenario: Pagar sin token
     Cuando pago la deuda con id 1 sin token
     Entonces la respuesta tiene estado 401 y código "NO_AUTENTICADO"
 
-  @tecnico @particion
+  @tecnico @particion @E3
   Esquema del escenario: deuda_id con tipo de dato inválido
     Cuando envío el cuerpo de pago <cuerpo>
     Entonces la respuesta tiene estado 422 y código "SOLICITUD_INVALIDA"

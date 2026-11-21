@@ -1,13 +1,14 @@
-"""QUÉ ES: la prueba TÉCNICA del pago de deudas (HU-G2-02), generada desde el contrato OpenAPI.
+"""QUÉ ES: la prueba TÉCNICA de los 9 endpoints del módulo G2 (E1..E9), generada desde el contrato OpenAPI.
 
 CÓMO FUNCIONA (en cada `pytest`):
   1. Levanta Qolqe en un puerto libre (en un hilo, solo durante esta prueba).
-  2. Ejecuta Schemathesis contra /openapi.json, solo para POST /api/servicios/pagos.
+  2. Ejecuta Schemathesis contra /openapi.json, para TODAS las operaciones /api/servicios/* (E1..E9).
      Schemathesis lee el contrato y GENERA casos: válidos, sin campos obligatorios, con
      tipos incorrectos, sin token, con otros métodos HTTP, etc.
-  3. Clasifica cada caso por validación de entrada (tests/tecnico/clasificacion_contrato.py),
+  3. Clasifica cada caso por endpoint y validación de entrada (tests/tecnico/clasificacion_contrato.py),
      regenera reportes/schemathesis/ultimo/reporte.html y deja el resumen para la terminal.
-PASA SI: ningún caso devuelve 500 y cada validación recibe la respuesta correcta.
+PASA SI: ningún caso devuelve 500 y cada validación recibe la respuesta correcta (los casos que caen en un
+  defecto ya reportado, p. ej. DEF-01, se marcan con su ID en el reporte y no rompen la prueba).
 Ejecutar solo esta prueba:  pytest -m schemathesis
 MODO: por defecto es DETERMINISTA, así cada ejecución genera los MISMOS casos (reproducible,
 ideal para la demo y para comparar antes/después de un arreglo). Para explorar casos nuevos al azar:
@@ -28,10 +29,11 @@ import httpx
 import pytest
 import uvicorn
 
-from clasificacion_contrato import analizar, generar_html, resumen
+from clasificacion_contrato import ENDPOINTS, analizar, generar_html, nombre_endpoint, resumen
 from qolqe.main import app
 
-OPERACION = "POST /api/servicios/pagos"
+OPERACION = "Todas las operaciones /api/servicios/* (G2)"
+RUTAS = r"^/api/servicios/"
 MAX_EJEMPLOS = 50
 CARPETA = Path("reportes/schemathesis/ultimo")
 
@@ -64,7 +66,7 @@ def _ejecutar_schemathesis(url: str, token: str, har: Path) -> str:
     opcion_modo = [] if aleatorio else ["--generation-deterministic"]
     proceso = subprocess.run(
         [ejecutable, "run", f"{url}/openapi.json", "-H", f"Authorization: Bearer {token}",
-         "--include-name", OPERACION, "--max-examples", str(MAX_EJEMPLOS), "--no-color",
+         "--include-path-regex", RUTAS, "--max-examples", str(MAX_EJEMPLOS), "--no-color",
          "--report", "har", "--report-har-path", str(har), *opcion_modo],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"}, timeout=600,
@@ -86,8 +88,9 @@ def _observaciones(salida: str) -> list[str]:
     return lineas
 
 
-@pytest.mark.schemathesis
-def test_pagar_deuda_cumple_el_contrato_openapi(servidor, request):
+@pytest.fixture(scope="module")
+def casos_schemathesis(servidor, request):
+    """Una sola ejecución de Schemathesis para los 9 endpoints; cada prueba de abajo revisa los de su endpoint."""
     token = httpx.post(f"{servidor}/api/auth/login", json={"celular": "987654321", "pin": "4826"}).json()["access_token"]
     CARPETA.mkdir(parents=True, exist_ok=True)
     har = CARPETA / "har.json"
@@ -108,9 +111,23 @@ def test_pagar_deuda_cumple_el_contrato_openapi(servidor, request):
     # Lo lee el resumen de la terminal (tests/conftest.py)
     request.config.resumen_tecnico = {"operacion": OPERACION, "casos": casos, "filas": resumen(casos),
                                       "observaciones": observaciones, "semilla": semilla, "reporte": str(reporte)}
+    return casos
 
+
+# Una prueba por endpoint (con su etiqueta @E<n>), así el reporte total muestra el contrato por endpoint.
+# "405" = cualquier ruta /api/servicios/* con un método que el contrato no declara.
+@pytest.mark.schemathesis
+@pytest.mark.tecnico
+@pytest.mark.contrato
+@pytest.mark.parametrize("endpoint", [pytest.param(e, marks=getattr(pytest.mark, e), id=e) for e in ENDPOINTS]
+                         + [pytest.param("405", id="metodo-no-declarado")])
+def test_endpoint_g2_cumple_el_contrato_openapi(casos_schemathesis, endpoint):
+    casos = [c for c in casos_schemathesis if c["endpoint"] == endpoint]
+    assert casos, f"Schemathesis no generó casos para {nombre_endpoint(endpoint)}"
     errores_500 = [c for c in casos if c["estado"] >= 500]
-    incorrectos = [c for c in casos if not c["correcto"]]
+    incorrectos = [c for c in casos if not c["correcto"] and not c["defecto"]]
     assert not errores_500, f"La API se cayó (500) en los casos {[c['numero'] for c in errores_500]}"
     assert not incorrectos, "Respuestas incorrectas: " + "; ".join(
         f"#{c['numero']} {c['validacion']} → {c['estado']}" for c in incorrectos)
+
+

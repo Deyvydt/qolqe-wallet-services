@@ -202,8 +202,8 @@ Pruebas de API automatizadas del módulo **G2**, con foco en las HU de prioridad
 
 | Tipo | Herramienta | De dónde salen los casos |
 |---|---|---|
-| **Funcional** | pytest + **pytest-bdd** + httpx (TestClient) | Escenarios Gherkin en español (`features/*.feature`) escritos a partir de las HU, con partición de equivalencia y valores límite |
-| **Técnica** | **Schemathesis** (dentro de pytest) | Se generan automáticamente desde el contrato OpenAPI (`/openapi.json`) de `POST /api/servicios/pagos` |
+| **Funcional** | pytest + **pytest-bdd** + httpx (TestClient) | Escenarios Gherkin en español (`features/api/*.feature`) escritos a partir de las HU, con partición de equivalencia y valores límite |
+| **Técnica** | **Schemathesis** (dentro de pytest) | Se generan automáticamente desde el contrato OpenAPI (`/openapi.json`) de las 9 operaciones `/api/servicios/*` (E1..E9) |
 
 ### 7.1 Instalación y ejecución
 
@@ -244,7 +244,7 @@ Cada `pytest` calcula los resúmenes con los resultados de **esa** ejecución (l
 
 ### 7.4 Casos funcionales de HU-G2-02 · Pagar una deuda
 
-Archivo: `features/g2_pagar_deuda.feature` (20 casos).
+Archivo: `features/api/g2_pagar_deuda.feature` (20 casos).
 
 | Escenario | CA / regla | Técnica | Casos |
 |---|---|---|---|
@@ -260,7 +260,7 @@ Archivo: `features/g2_pagar_deuda.feature` (20 casos).
 | Pagar sin token → 401 | — | Seguridad | 1 |
 | `deuda_id` con tipo inválido: `{}`, `"abc"`, `null` → 422 | — | Técnica (partición) | 3 |
 
-El resto de los casos está en `features/g2_consultar_deudas.feature` (HU-G2-01: empresa, longitud del suministro de 7, 8, 12 y 13 dígitos, formato, orden, campos, estado a los 59, 60 y 61 días, sin deudas) y en `features/g2_debito_automatico.feature` (HU-G2-05).
+El resto de los casos está en `features/api/g2_consultar_deudas.feature` (HU-G2-01: empresa, longitud del suministro de 7, 8, 12 y 13 dígitos, formato, orden, campos, estado a los 59, 60 y 61 días, sin deudas) y en `features/api/g2_debito_automatico.feature` (HU-G2-05).
 
 ### 7.5 Validaciones de entrada: dónde se prueba cada una
 
@@ -296,7 +296,7 @@ Las fallas son esperadas: cada una evidencia un defecto real. El detalle, con pa
 
 | Archivo | Qué es |
 |---|---|
-| `features/g2_*.feature` | Escenarios Gherkin por HU, con etiquetas `@HU-G2-0x @CAn @técnica` para la trazabilidad |
+| `features/api/g2_*.feature` | Escenarios Gherkin por HU, con etiquetas `@funcional`/`@tecnico`, `@E1`..`@E10` (endpoint), `@HU-G2-0x @CAn @técnica` para la trazabilidad |
 | `tests/api/conftest.py` | Pasos de pytest-bdd: conectan cada frase del Gherkin con una llamada a la API y su verificación |
 | `tests/api/test_g2_pago_servicios.py` | Convierte cada escenario de los `.feature` en una prueba de pytest |
 | `tests/tecnico/test_contrato_schemathesis.py` | Prueba técnica: levanta la app, ejecuta Schemathesis y falla si hay un 500 o una validación mal respondida |

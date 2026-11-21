@@ -1,7 +1,7 @@
 """QUÉ ES: los "pasos" (steps) de pytest-bdd del módulo G2. Es el puente entre el
 Gherkin y la API.
 
-CÓMO FUNCIONA: cada frase de los .feature (features/g2_*.feature) tiene aquí una
+CÓMO FUNCIONA: cada frase de los .feature (features/api/g2_*.feature) tiene aquí una
 función con el mismo texto. Ej.: 'Cuando pago la deuda "ELECTRO" "10000001"' ejecuta
 pagar_deuda(), que envía POST /api/servicios/pagos con httpx (TestClient) y guarda la
 respuesta en ctx; luego un paso 'Entonces ...' la verifica con assert.
@@ -258,8 +258,9 @@ def afiliar_con_debito(cliente, ctx, empresa, suministro, alias):
 
 
 @when("se ejecuta el proceso diario")
-def proceso_diario(cliente):
-    assert cliente.post("/api/pruebas/procesar-diario").status_code == 200
+def proceso_diario(cliente, ctx):
+    ctx["respuesta"] = cliente.post("/api/pruebas/procesar-diario")
+    assert ctx["respuesta"].status_code == 200, ctx["respuesta"].text
 
 
 def _pagos_debito(cliente, ctx, empresa, suministro):
@@ -279,3 +280,248 @@ def verificar_debitos(cliente, ctx, n, empresa, suministro):
     pagos = _pagos_debito(cliente, ctx, empresa, suministro)
     assert len(pagos) == n, f"Esperado {n} pagos por débito automático, obtenido {len(pagos)}: " + ", ".join(
         f"{p['periodo']} total {p['total']} mora {p['mora']}" for p in pagos)
+
+
+@then(parsers.parse("el proceso diario reporta {pagados:d} débitos pagados y {fallidos:d} fallidos"))
+def verificar_proceso_diario(ctx, pagados, fallidos):
+    r = ctx["respuesta"].json()
+    assert (r["debitos_pagados"], r["debitos_fallidos"]) == (pagados, fallidos), r
+
+
+@then(parsers.re(r'la deuda "(?P<empresa>[^"]+)" "(?P<suministro>[^"]+)" sigue pendiente$'))
+def verificar_deuda_pendiente(cliente, ctx, empresa, suministro):
+    assert _deudas(cliente, ctx, empresa, suministro)[0]["estado"] == "PENDIENTE"
+
+
+@then(parsers.re(r'recibí un SMS que dice "(?P<texto>[^"]+)"$'))
+def verificar_sms(cliente, ctx, texto):
+    mensajes = [n["mensaje"] for n in cliente.get("/api/pruebas/notificaciones",
+                                                  params={"celular": ctx["credenciales"][0]}).json()]
+    assert any(texto in m for m in mensajes), mensajes
+
+
+@then("la fecha del proceso diario es la fecha del reloj")
+def verificar_fecha_proceso(cliente, ctx):
+    assert ctx["respuesta"].json()["fecha"] == cliente.get("/api/pruebas/reloj").json()["ahora"][:10]
+
+
+# ---------------------------------------------------------------- pasos genéricos de los 9 endpoints (E1..E10)
+# Usan expresiones regulares con [^"]+ para que un texto entre comillas no "se coma" el resto de la frase.
+
+def _pedir(cliente, ctx, metodo, ruta, cuerpo=None, headers=None):
+    """Envía cualquier solicitud. Por defecto con un token válido; headers={} = sin token."""
+    headers = _headers(cliente, ctx) if headers is None else headers
+    if cuerpo is not None:
+        headers = {**headers, "Content-Type": "application/json"}
+    ctx["respuesta"] = cliente.request(metodo, ruta, content=cuerpo, headers=headers)
+    return ctx["respuesta"]
+
+
+def _afiliaciones(cliente, ctx):
+    r = cliente.get("/api/servicios/afiliaciones", headers=_headers(cliente, ctx))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _id_afiliacion(cliente, ctx, alias):
+    return next(a["id"] for a in _afiliaciones(cliente, ctx) if a["alias"] == alias)
+
+
+def _afiliar(cliente, ctx, empresa, suministro, alias):
+    cuerpo = {"empresa": empresa, "suministro": suministro, "alias": alias}
+    ctx["respuesta"] = cliente.post("/api/servicios/afiliaciones", json=cuerpo, headers=_headers(cliente, ctx))
+    return ctx["respuesta"]
+
+
+@given("que no hice nada")
+def no_hice_nada():
+    pass
+
+
+@given(parsers.parse("que guardé mi token y pasaron {minutos:d} minutos"))
+def token_guardado_y_reloj(cliente, ctx, minutos):
+    ctx["token"] = _headers(cliente, ctx)["Authorization"]
+    r = cliente.put("/api/pruebas/reloj", json={"avanzar_minutos": minutos})
+    assert r.status_code == 200, r.text
+
+
+@given(parsers.re(r'que anoté el id de mi afiliación "(?P<alias>[^"]+)"$'))
+def anotar_afiliacion(cliente, ctx, alias):
+    ctx["afiliacion_id"] = _id_afiliacion(cliente, ctx, alias)
+
+
+@given(parsers.re(r'que afilié "(?P<empresa>[^"]+)" "(?P<suministro>[^"]+)" con alias "(?P<alias>[^"]+)"$'))
+def afiliar_sin_debito(cliente, ctx, empresa, suministro, alias):
+    assert _afiliar(cliente, ctx, empresa, suministro, alias).status_code == 201, ctx["respuesta"].text
+
+
+# Suministros con recibos en la semilla que Ana aún no tiene afiliados (Ana ya tiene 3)
+_PARA_AFILIAR = [("ELECTRO", "10000002"), ("ELECTRO", "10000003"), ("AGUA", "20000004"), ("AGUA", "20000005"),
+                 ("INTERNET", "300000000006")]
+
+
+@given(parsers.parse("que tengo {n:d} afiliaciones"))
+def tener_afiliaciones(cliente, ctx, n):
+    faltan = n - len(_afiliaciones(cliente, ctx))
+    for i, (empresa, suministro) in enumerate(_PARA_AFILIAR[:faltan]):
+        assert _afiliar(cliente, ctx, empresa, suministro, f"Servicio {i + 1}").status_code == 201, ctx["respuesta"].text
+    assert len(_afiliaciones(cliente, ctx)) == n
+
+
+@given(parsers.re(r'que cambié la afiliación "(?P<alias>[^"]+)" con el cuerpo (?P<cuerpo>.+)$'))
+@when(parsers.re(r'cambio la afiliación "(?P<alias>[^"]+)" con el cuerpo (?P<cuerpo>.+)$'))
+def cambiar_afiliacion(cliente, ctx, alias, cuerpo):
+    _pedir(cliente, ctx, "PUT", f"/api/servicios/afiliaciones/{_id_afiliacion(cliente, ctx, alias)}", cuerpo)
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)"$'))
+def enviar(cliente, ctx, metodo, ruta):
+    _pedir(cliente, ctx, metodo, ruta)
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)" sin token$'))
+def enviar_sin_token(cliente, ctx, metodo, ruta):
+    _pedir(cliente, ctx, metodo, ruta, headers={})
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)" con el token "(?P<token>[^"]*)"$'))
+def enviar_con_token(cliente, ctx, metodo, ruta, token):
+    _pedir(cliente, ctx, metodo, ruta, headers={"Authorization": f"Bearer {token}"})
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)" con el token guardado$'))
+def enviar_con_token_guardado(cliente, ctx, metodo, ruta):
+    _pedir(cliente, ctx, metodo, ruta, headers={"Authorization": ctx["token"]})
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)" con el cuerpo (?P<cuerpo>.+)$'))
+def enviar_con_cuerpo(cliente, ctx, metodo, ruta, cuerpo):
+    _pedir(cliente, ctx, metodo, ruta, cuerpo)
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a la afiliación anotada con el cuerpo (?P<cuerpo>.+)$'))
+def enviar_a_anotada_con_cuerpo(cliente, ctx, metodo, cuerpo):
+    _pedir(cliente, ctx, metodo, f"/api/servicios/afiliaciones/{ctx['afiliacion_id']}", cuerpo)
+
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a la afiliación anotada$'))
+def enviar_a_anotada(cliente, ctx, metodo):
+    _pedir(cliente, ctx, metodo, f"/api/servicios/afiliaciones/{ctx['afiliacion_id']}")
+
+
+@when(parsers.re(r'consulto mis pagos de la afiliación "(?P<alias>[^"]+)"$'))
+def pagos_de_afiliacion(cliente, ctx, alias):
+    _pedir(cliente, ctx, "GET", f"/api/servicios/pagos?afiliacion_id={_id_afiliacion(cliente, ctx, alias)}")
+
+
+@when("consulto mis pagos de la afiliación anotada")
+def pagos_de_afiliacion_anotada(cliente, ctx):
+    _pedir(cliente, ctx, "GET", f"/api/servicios/pagos?afiliacion_id={ctx['afiliacion_id']}")
+
+
+@when("consulto el comprobante de ese pago sin token")
+def comprobante_sin_token(cliente, ctx):
+    _pedir(cliente, ctx, "GET", f"/api/servicios/pagos/{ctx['comprobante']['codigo_operacion']}", headers={})
+
+
+@when(parsers.re(r'afilio "(?P<empresa>[^"]+)" "(?P<suministro>[^"]+)" con alias "(?P<alias>[^"]+)"$'))
+def afiliar(cliente, ctx, empresa, suministro, alias):
+    _afiliar(cliente, ctx, empresa, suministro, alias)
+
+
+@when(parsers.re(r'desafilio "(?P<alias>[^"]+)"$'))
+def desafiliar(cliente, ctx, alias):
+    _pedir(cliente, ctx, "DELETE", f"/api/servicios/afiliaciones/{_id_afiliacion(cliente, ctx, alias)}")
+
+
+@then(parsers.re(r'la lista tiene los (?P<campo>códigos|alias) "(?P<valores>[^"]+)" en ese orden$'))
+def verificar_lista_ordenada(ctx, campo, valores):
+    clave = "codigo" if campo == "códigos" else "alias"
+    assert [x[clave] for x in ctx["respuesta"].json()] == valores.split(", "), ctx["respuesta"].text
+
+
+@then(parsers.re(r'la lista no tiene el código "(?P<codigo>[^"]+)"$'))
+def verificar_codigo_ausente(ctx, codigo):
+    assert codigo not in [x["codigo"] for x in ctx["respuesta"].json()]
+
+
+@then(parsers.re(r'al consultar las deudas de la empresa "(?P<empresa>[^"]+)" y suministro "(?P<suministro>[^"]+)" '
+                 r'responde (?P<estado>\d+) "(?P<codigo>[^"]+)"$'))
+def verificar_consulta(cliente, ctx, empresa, suministro, estado, codigo):
+    r = cliente.get("/api/servicios/deudas", params={"empresa": empresa, "suministro": suministro},
+                    headers=_headers(cliente, ctx))
+    assert (r.status_code, r.json()["codigo"]) == (int(estado), codigo), r.text
+
+
+@then(parsers.re(r'cada elemento de la lista tiene los campos "(?P<campos>[^"]+)"$'))
+def verificar_campos_lista(ctx, campos):
+    lista = ctx["respuesta"].json()
+    assert lista, "La lista está vacía"
+    for elemento in lista:
+        faltan = [c for c in campos.split(", ") if c not in elemento]
+        assert not faltan, f"Faltan {faltan} en {elemento}"
+
+
+@then(parsers.re(r'la respuesta tiene los campos "(?P<campos>[^"]+)"$'))
+def verificar_campos_respuesta(ctx, campos):
+    faltan = [c for c in campos.split(", ") if c not in ctx["respuesta"].json()]
+    assert not faltan, f"Faltan {faltan}"
+
+
+@then("la lista está vacía")
+def verificar_lista_vacia(ctx):
+    assert ctx["respuesta"].json() == []
+
+
+@then(parsers.re(r'mis pagos son "(?P<pagos>[^"]+)" en ese orden$'))
+def verificar_mis_pagos(cliente, ctx, pagos):
+    r = ctx["respuesta"]
+    if r.request.method != "GET" or r.url.path != "/api/servicios/pagos":
+        r = cliente.get("/api/servicios/pagos", headers=_headers(cliente, ctx))
+    assert [f"{p['empresa']} {p['suministro']}" for p in r.json()] == pagos.split(", "), r.text
+
+
+@then("el comprobante tiene el mismo código de operación del pago")
+def verificar_mismo_codigo(ctx):
+    assert ctx["respuesta"].json()["codigo_operacion"] == ctx["comprobante"]["codigo_operacion"]
+
+
+def _afiliacion_de_la_lista(ctx, alias):
+    return next((a for a in ctx["respuesta"].json() if a["alias"] == alias), None)
+
+
+@then(parsers.re(r'la afiliación "(?P<alias>[^"]+)" tiene situación "(?P<situacion>[^"]+)" '
+                 r'y total pendiente "(?P<total>[^"]+)"$'))
+def verificar_situacion(ctx, alias, situacion, total):
+    a = _afiliacion_de_la_lista(ctx, alias)
+    assert (a["situacion"], a["total_pendiente"]) == (situacion, total), a
+
+
+@then(parsers.re(r'la afiliación "(?P<alias>[^"]+)" (?P<no>no )?tiene próximo vencimiento$'))
+def verificar_proximo_vencimiento(ctx, alias, no):
+    a = _afiliacion_de_la_lista(ctx, alias)
+    assert (a["proximo_vencimiento"] is None) == bool(no), a
+
+
+@then(parsers.re(r'la afiliación creada tiene alias "(?P<alias>[^"]+)", situación "(?P<situacion>[^"]+)" '
+                 r'y débito automático desactivado$'))
+def verificar_afiliacion_creada(ctx, alias, situacion):
+    a = ctx["respuesta"].json()
+    assert (a["alias"], a["situacion"], a["debito_automatico"]) == (alias, situacion, False), a
+
+
+@then("la afiliación devuelta tiene el débito automático activo")
+def verificar_debito_activo(ctx):
+    assert ctx["respuesta"].json()["debito_automatico"] is True
+
+
+@then(parsers.re(r'la afiliación "(?P<alias>[^"]+)" (?P<ya_no>ya no )?aparece en mi lista$'))
+def verificar_en_lista(cliente, ctx, alias, ya_no):
+    presente = alias in [a["alias"] for a in _afiliaciones(cliente, ctx)]
+    assert presente != bool(ya_no)
+
+
+@then(parsers.re(r'la afiliación anotada sigue existiendo para "(?P<celular>[^"]+)" con PIN "(?P<pin>[^"]+)"$'))
+def verificar_anotada_existe(cliente, ctx, celular, pin):
+    ctx["credenciales"] = (celular, pin)
+    assert ctx["afiliacion_id"] in [a["id"] for a in _afiliaciones(cliente, ctx)]

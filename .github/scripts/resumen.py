@@ -21,7 +21,8 @@ import argparse
 import sys
 from collections import defaultdict
 
-from trazabilidad import SIN_HU, agregar_a_summary, contar, contexto_run, leer_reporte, url_defecto
+from trazabilidad import (RESULTADOS, SIN_HU, TIPOS, agregar_a_summary, contar, contexto_run, leer_reporte,
+                          nombre_endpoint, tabla_endpoints, url_defecto)
 
 
 def _md(texto):
@@ -56,6 +57,14 @@ def generar(ruta, titulo):
             d = por_hu[hu]
             out.append(f"| {hu} | {d['casos']} | {d['passed']} | {d['xfailed']} | {d['failed']} |")
         out.append("")
+
+    filas_e, total_e = tabla_endpoints(casos)
+    out += ["| Endpoint | Funcional (✅/⚠️/❌) | Técnico (✅/⚠️/❌) | Total |", "|---|---|---|---:|"]
+    for nombre, fila in [*filas_e, ("TOTAL", total_e)]:
+        tipos = [f"{sum(fila[t].values())} ({'/'.join(str(fila[t][r]) for r in RESULTADOS)})" for t in TIPOS]
+        out.append(f"| {_md(nombre_endpoint(nombre))} | {tipos[0]} | {tipos[1]} | "
+                   f"{sum(sum(fila[t].values()) for t in fila)} |")
+    out.append("")
 
     url_defectos = contexto_run()["url_defectos"]
     esperados = [c for c in casos if c["estado"] == "xfailed"]
