@@ -16,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from triaje_ia import MODELO, RAIZ_REPO, clasificar_offline, triar
+from triaje_ia import MODELO, PROVEEDOR, RAIZ_REPO, clasificar_offline, triar
 
 CASOS = RAIZ_REPO / "tests" / "triaje" / "casos_etiquetados.json"
 
@@ -52,7 +52,7 @@ def main():
     hay_ia = aviso is None
 
     out = [f"# Validación del agente de triaje · {date.today().isoformat()}", "",
-           f"Casos etiquetados: {n} (`tests/triaje/casos_etiquetados.json`). Modelo: `{MODELO}` (GitHub Models), temperatura 0.", ""]
+           f"Casos etiquetados: {n} (`tests/triaje/casos_etiquetados.json`). Modelo: `{MODELO}` ({PROVEEDOR}).", ""]
     if not hay_ia:
         out += [f"> ⚠️ El modelo no estuvo disponible ({aviso}); solo se evaluó la línea base por reglas.", ""]
     out += ["| Clasificador | Categoría correcta | DEF correcto |", "|---|---:|---:|"]

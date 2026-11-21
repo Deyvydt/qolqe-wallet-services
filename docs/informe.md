@@ -397,13 +397,13 @@ Resumen de [`docs/trazabilidad-qase.md`](trazabilidad-qase.md):
 | Aspecto | Descripción |
 |---|---|
 | Qué hace | Para cada falla **nueva** del run propone categoría (`defecto_real`, `prueba_fragil`, `entorno`), el DEF ya reportado al que corresponde (si alguno), causa probable y siguiente paso |
-| Cómo | Agente con un modelo de GitHub Models (`openai/gpt-4.1-mini`, temperatura 0) que puede consultar `docs/defectos.md`, el diff del último commit y el código del repo antes de responder (`.github/scripts/triaje_ia.py`) |
+| Cómo | Agente con Claude (`claude-haiku-5-5`, API de Anthropic; GitHub Models como alternativa) que puede consultar `docs/defectos.md`, el diff del último commit y el código del repo antes de responder (`.github/scripts/triaje_ia.py`) |
 | Validación | 10 fallas etiquetadas a mano (`tests/triaje/casos_etiquetados.json`): DEF-01…05 y 5 sintéticas. Se mide exactitud de categoría y de DEF frente a una **línea base por reglas**. Pruebas unitarias sin red en `tests/triaje/test_triaje.py` (corren en el job `api`) |
 | Resultados | Línea base por reglas: **9/10** en categoría y **10/10** en DEF. **Modelo:** el job `triaje-ia` ejecuta `validar_triaje.py` con el modelo real en cada run; las cifras quedan en el artefacto `triaje-ia` (`validacion.md`) tras el próximo run. Detalle: [`docs/ia/validacion_triaje.md`](ia/validacion_triaje.md) |
 | Controles | Salida JSON validada; el DEF solo se acepta si existe en `defectos.md`; **humano en el bucle** (solo sugiere: no marca xfail ni abre/cierra defectos); nunca bloquea el pipeline; se filtran tokens/contraseñas de las trazas |
 | Límites | 10 casos son pocos (resultado orientativo); la línea base es optimista porque sus reglas salen de las mismas huellas de `defectos.md`; un timeout de carga (DEF-05) es difícil de separar de «entorno» |
 
-<!-- cifras del modelo: pegar de validacion.md -->
+**Resultado de la validación con el modelo (Claude `claude-haiku-5-5`, 10 casos etiquetados, 20/11/2026):** el agente acierta **10/10** en categoría y **10/10** en defecto asignado, frente a **9/10** y **10/10** de la línea base por reglas. Consultó herramientas (`leer_defectos`, `leer_fragmento_codigo`) en los 10 casos y corrigió el caso C09 (prueba frágil por timing) que las reglas clasificaban como defecto real. Detalle caso por caso en `docs/ia/validacion_triaje.md`. **Límite:** 10 casos, con 5 defectos que el agente puede leer en `docs/defectos.md`; mide el reconocimiento de lo documentado, no generalización, y por eso el triaje solo sugiere.
 
 ---
 

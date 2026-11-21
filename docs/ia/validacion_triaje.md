@@ -1,47 +1,52 @@
 # Validación del agente de triaje · 2026-11-20
 
-Casos etiquetados: 10 (`tests/triaje/casos_etiquetados.json`). Modelo: `openai/gpt-4.1-mini` (GitHub Models), temperatura 0.
-
-> ⚠️ El modelo no estuvo disponible (no hay GITHUB_TOKEN); solo se evaluó la línea base por reglas.
+Casos etiquetados: 10 (`tests/triaje/casos_etiquetados.json`). Modelo: `claude-haiku-5-5` (Claude API (Anthropic)).
 
 | Clasificador | Categoría correcta | DEF correcto |
 |---|---:|---:|
 | Línea base (reglas) | 9/10 (90%) | 10/10 (100%) |
+| Agente IA | 10/10 (100%) | 10/10 (100%) |
 
 ## Caso por caso
 
 | Caso | Esperado | Reglas | IA | Herramientas usadas por el agente | Confianza IA |
 |---|---|---|---|---|---:|
-| C01 | defecto_real / DEF-01 | defecto_real ✅ / DEF-01 ✅ | no evaluado | — | — |
-| C02 | defecto_real / DEF-02 | defecto_real ✅ / DEF-02 ✅ | no evaluado | — | — |
-| C03 | defecto_real / DEF-03 | defecto_real ✅ / DEF-03 ✅ | no evaluado | — | — |
-| C04 | defecto_real / DEF-04 | defecto_real ✅ / DEF-04 ✅ | no evaluado | — | — |
-| C05 | defecto_real / DEF-05 | defecto_real ✅ / DEF-05 ✅ | no evaluado | — | — |
-| C06 | entorno / — | entorno ✅ / — ✅ | no evaluado | — | — |
-| C07 | entorno / — | entorno ✅ / — ✅ | no evaluado | — | — |
-| C08 | prueba_fragil / — | prueba_fragil ✅ / — ✅ | no evaluado | — | — |
-| C09 | prueba_fragil / — | defecto_real ❌ / — ✅ | no evaluado | — | — |
-| C10 | defecto_real / — | defecto_real ✅ / — ✅ | no evaluado | — | — |
+| C01 | defecto_real / DEF-01 | defecto_real ✅ / DEF-01 ✅ | defecto_real ✅ / DEF-01 ✅ | leer_defectos, leer_fragmento_codigo | 0.95 |
+| C02 | defecto_real / DEF-02 | defecto_real ✅ / DEF-02 ✅ | defecto_real ✅ / DEF-02 ✅ | leer_defectos, leer_fragmento_codigo | 0.95 |
+| C03 | defecto_real / DEF-03 | defecto_real ✅ / DEF-03 ✅ | defecto_real ✅ / DEF-03 ✅ | leer_defectos, leer_fragmento_codigo | 0.93 |
+| C04 | defecto_real / DEF-04 | defecto_real ✅ / DEF-04 ✅ | defecto_real ✅ / DEF-04 ✅ | leer_defectos, leer_fragmento_codigo | 0.95 |
+| C05 | defecto_real / DEF-05 | defecto_real ✅ / DEF-05 ✅ | defecto_real ✅ / DEF-05 ✅ | leer_defectos | 0.90 |
+| C06 | entorno / — | entorno ✅ / — ✅ | entorno ✅ / — ✅ | ninguna | 0.90 |
+| C07 | entorno / — | entorno ✅ / — ✅ | entorno ✅ / — ✅ | leer_defectos | 0.85 |
+| C08 | prueba_fragil / — | prueba_fragil ✅ / — ✅ | prueba_fragil ✅ / — ✅ | leer_defectos | 0.90 |
+| C09 | prueba_fragil / — | defecto_real ❌ / — ✅ | prueba_fragil ✅ / — ✅ | leer_defectos | 0.85 |
+| C10 | defecto_real / — | defecto_real ✅ / — ✅ | defecto_real ✅ / — ✅ | leer_defectos, leer_fragmento_codigo | 0.60 |
 
-> Las tablas de arriba las genera `python .github/scripts/validar_triaje.py --salida docs/ia/validacion_triaje.md`.
+> Las tablas de arriba las genera `python .github/scripts/validar_triaje.py --destino docs`.
 > Lo que sigue es el análisis.
 
-## Estado de la validación con el modelo
+## Resultado de la validación con el modelo
 
-La corrida con el modelo **todavía no se hizo**: desde la máquina local la llamada a
-`models.github.ai` no llegó al servicio (la red local devolvió `200 OK` en texto plano, sin el JSON
-del modelo). El agente lo detectó, avisó «triaje IA no disponible» y usó las reglas, que es justo la
-degradación esperada. Las cifras del agente IA se completan corriendo el mismo script en el pipeline
-(job `triaje-ia`, con `models: read`) o en una máquina con acceso:
+Se ejecutó el agente con **Claude (`claude-haiku-5-5`, API de Anthropic)** sobre los 10 casos etiquetados el 20/11/2026.
+El mismo script corre en el pipeline (job `triaje-ia`, secret `ANTHROPIC_API_KEY`) y deja su propia tabla en el
+artefacto `triaje-ia/validacion.md`.
 
-```bash
-GITHUB_TOKEN=$(gh auth token) python .github/scripts/validar_triaje.py --salida docs/ia/validacion_triaje.md
-```
+| Clasificador | Categoría | DEF |
+|---|---:|---:|
+| Reglas (línea base) | 9/10 | 10/10 |
+| **Agente con Claude** | **10/10** | **10/10** |
+
+- El agente consultó herramientas en los 10 casos (`leer_defectos` en todos; `leer_fragmento_codigo` en 7) antes de responder.
+- Corrigió el único error de las reglas: **C09** (timing de animación), que las reglas clasificaban como defecto real y el modelo reconoció como prueba frágil.
+- **Lectura honesta del resultado:** 10 casos son pocos y 5 de ellos son defectos que el agente puede leer en `docs/defectos.md`,
+  así que el 100 % mide bien «reconoce lo ya documentado» y no prueba generalización a fallas nuevas. Por eso el triaje **sugiere y una persona confirma**.
+- Proveedor: con `ANTHROPIC_API_KEY` se usa Claude; sin ella, GitHub Models; sin ninguno, solo reglas (el pipeline nunca se bloquea).
+  Se probó GitHub Models primero, pero su servicio respondió `OK` en texto plano a todas las llamadas (incluido su catálogo), tanto desde el equipo local como desde el runner.
 
 ## Qué aporta
 
 - Cada falla **nueva** del run llega con una hipótesis: categoría (`defecto_real`, `prueba_fragil`,
-  `entorno`), si coincide con un defecto ya reportado (DEF-01…05), causa probable y siguiente paso.
+  `entorno`), si coincide con un defecto ya reportado (DEF-01…05, y DEF-06…14 en el listado vivo de `docs/defectos.md`), causa probable y siguiente paso.
 - Es un **agente**: antes de responder puede leer `docs/defectos.md`, ver qué cambió el último
   commit y leer el código del repo (p. ej. `qolqe/reglas/servicios.py`). La tabla «Herramientas
   usadas» muestra qué consultó en cada caso.
@@ -71,7 +76,7 @@ GITHUB_TOKEN=$(gh auth token) python .github/scripts/validar_triaje.py --salida 
 
 | Riesgo | Mitigación |
 |---|---|
-| Alucinación (inventa un DEF o una categoría) | Salida **JSON estricta** y validada. La categoría solo puede ser uno de 3 valores, si no se descarta la respuesta. El DEF se acepta **solo si existe** en `docs/defectos.md` (si no, queda `null`). La confianza se recorta a [0, 1]. Temperatura 0. |
+| Alucinación (inventa un DEF o una categoría) | Salida **JSON estricta** y validada. La categoría solo puede ser uno de 3 valores, si no se descarta la respuesta. El DEF se acepta **solo si existe** en `docs/defectos.md` (si no, queda `null`). La confianza se recorta a [0, 1]. |
 | Decisiones automáticas equivocadas | **Humano en el bucle**: el triaje solo sugiere. No marca xfail, no abre ni cierra defectos y no cambia el resultado del run. |
 | Bloquear el pipeline | `continue-on-error: true` y `exit 0` siempre. Sin token, con error o con límite de uso, se usan las reglas y se avisa. |
 | Fuga de información | Solo se envían el nombre de la prueba y su traza (recortada a 3 000 caracteres), quitando lo que parezca token o contraseña. `leer_fragmento_codigo` no sale del repo ni lee `.git` ni `.env`. |

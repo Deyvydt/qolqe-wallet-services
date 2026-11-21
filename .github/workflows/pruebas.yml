@@ -163,7 +163,7 @@ jobs:
       - name: Triaje de las fallas con el agente IA (no bloquea)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIAJE_MODELO: openai/gpt-4.1-mini
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: >-
           python .github/scripts/triaje_ia.py
           reportes/api/junit.xml reportes/contrato/junit.xml reportes/web/output.xml
@@ -172,7 +172,7 @@ jobs:
       - name: Validar el triaje con los 10 casos etiquetados (cifras reales del modelo)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIAJE_MODELO: openai/gpt-4.1-mini
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python .github/scripts/validar_triaje.py --destino ci
 
       - name: Guardar el triaje como artefacto

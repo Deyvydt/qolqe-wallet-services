@@ -43,7 +43,11 @@ from pathlib import Path
 from trazabilidad import RAIZ_REPO, DEFECTOS_MD, agregar_a_summary, nombre_legible
 
 ENDPOINT = "https://models.github.ai/inference/chat/completions"
-MODELO = os.environ.get("TRIAJE_MODELO", "openai/gpt-4.1-mini")
+# Proveedor: con ANTHROPIC_API_KEY se usa Claude (API de Anthropic); si no, GitHub Models.
+CLAVE_ANTHROPIC = os.environ.get("ANTHROPIC_API_KEY")
+ENDPOINT_ANTHROPIC = "https://api.anthropic.com/v1/messages"
+PROVEEDOR = "Claude API (Anthropic)" if CLAVE_ANTHROPIC else "GitHub Models"
+MODELO = os.environ.get("TRIAJE_MODELO") or ("claude-haiku-5-5" if CLAVE_ANTHROPIC else "openai/gpt-4.1-mini")
 CATEGORIAS = ("defecto_real", "prueba_fragil", "entorno")
 MAX_TRAZA = 3000      # caracteres de traza que se envían al modelo
 MAX_PASOS = 6         # vueltas del bucle del agente por falla
@@ -234,7 +238,7 @@ def validar_respuesta(texto, falla, validos):
     """Convierte la respuesta del modelo en un resultado seguro (o lanza IANoDisponible)."""
     encontrado = re.search(r"\{.*\}", texto or "", re.S)
     if not encontrado:
-        raise IANoDisponible("el modelo no devolvió JSON")
+        raise IANoDisponible(f"el modelo no devolvió JSON: {(texto or '')[:200]!r}")
     try:
         datos = json.loads(encontrado.group(0))
     except json.JSONDecodeError as error:
@@ -277,18 +281,78 @@ def triar_con_agente(falla, token, validos):
     raise IANoDisponible("el agente no terminó en el máximo de pasos")
 
 
+def _llamar_claude(sistema, mensajes, clave):
+    """Una vuelta de la Messages API de Anthropic con las mismas herramientas del agente."""
+    herramientas = [{"name": h["function"]["name"], "description": h["function"]["description"],
+                     "input_schema": h["function"]["parameters"]} for h in ESQUEMA_HERRAMIENTAS]
+    cuerpo = json.dumps({"model": MODELO, "max_tokens": 800, "system": sistema,
+                         "messages": mensajes, "tools": herramientas}).encode()
+    for intento in range(2):
+        req = urllib.request.Request(ENDPOINT_ANTHROPIC, data=cuerpo, method="POST", headers={
+            "x-api-key": clave, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                crudo = r.read()
+                try:
+                    return json.loads(crudo)
+                except ValueError as error:
+                    raise IANoDisponible(f"respuesta no JSON (HTTP {r.status}): {crudo[:120]!r}") from error
+        except urllib.error.HTTPError as error:
+            espera = int(error.headers.get("Retry-After") or 0)
+            if error.code in (429, 529) and intento == 0 and espera <= 30:
+                time.sleep(espera or 10)
+                continue
+            detalle = error.read()[:200].decode("utf-8", "replace") if hasattr(error, "read") else ""
+            raise IANoDisponible(f"HTTP {error.code} del modelo: {detalle}") from error
+        except (urllib.error.URLError, TimeoutError) as error:
+            raise IANoDisponible(f"sin respuesta del modelo ({type(error).__name__})") from error
+    raise IANoDisponible("límite de uso del modelo")
+
+
+def triar_con_claude(falla, clave, validos):
+    sistema = SISTEMA.format(defectos=", ".join(validos))
+    mensajes = [{"role": "user", "content": f"Prueba: {falla['prueba']} ({falla['origen']})\nTraza:\n{falla['mensaje']}"}]
+    usadas, insistido = [], False
+    for _ in range(MAX_PASOS):
+        respuesta = _llamar_claude(sistema, mensajes, clave)
+        bloques = respuesta.get("content") or []
+        llamadas = [b for b in bloques if b.get("type") == "tool_use"]
+        if not llamadas:
+            texto = "".join(b.get("text", "") for b in bloques if b.get("type") == "text")
+            if not texto.strip() and not insistido:  # a veces cierra sin texto: se le pide el JSON una vez
+                insistido = True
+                mensajes.append({"role": "assistant", "content": bloques or [{"type": "text", "text": "..."}]})
+                mensajes.append({"role": "user", "content": "Responde ahora SOLO con el objeto JSON pedido."})
+                continue
+            resultado = validar_respuesta(texto, falla, validos)
+            resultado["herramientas"] = usadas
+            return resultado
+        mensajes.append({"role": "assistant", "content": bloques})
+        resultados_herr = []
+        for llamada in llamadas:
+            try:
+                salida = HERRAMIENTAS[llamada["name"]](**(llamada.get("input") or {}))
+            except Exception as error:  # una herramienta mal pedida no corta el bucle
+                salida = f"Error al ejecutar {llamada['name']}: {error}"
+            usadas.append(llamada["name"])
+            resultados_herr.append({"type": "tool_result", "tool_use_id": llamada["id"], "content": str(salida)})
+        mensajes.append({"role": "user", "content": resultados_herr})
+    raise IANoDisponible("el agente no terminó en el máximo de pasos")
+
+
 def triar(fallas, offline=False, token=None):
     """Devuelve (resultados, aviso). Si la IA no está disponible, usa reglas y lo avisa."""
     if offline:
         return [clasificar_offline(f) for f in fallas], None
-    if not token:
-        return [clasificar_offline(f) for f in fallas], "no hay GITHUB_TOKEN"
+    agente, credencial = (triar_con_claude, CLAVE_ANTHROPIC) if CLAVE_ANTHROPIC else (triar_con_agente, token)
+    if not credencial:
+        return [clasificar_offline(f) for f in fallas], "no hay credencial del modelo (GITHUB_TOKEN o ANTHROPIC_API_KEY)"
     validos = defectos_conocidos()
     resultados, aviso = [], None
     for f in fallas:
         if aviso is None:
             try:
-                resultados.append(triar_con_agente(f, token, validos))
+                resultados.append(agente(f, credencial, validos))
                 continue
             except IANoDisponible as error:
                 aviso = str(error)  # deja de llamar al modelo; el resto va por reglas
@@ -331,7 +395,7 @@ def ruta_segura(ruta, permitidas):
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    p = argparse.ArgumentParser(description="Triaje de fallas de pruebas con un agente LLM (GitHub Models).")
+    p = argparse.ArgumentParser(description="Triaje de fallas de pruebas con un agente LLM (Claude API o GitHub Models).")
     p.add_argument("reportes", nargs="+", help="JUnit XML de pytest y/o output.xml de Robot")
     p.add_argument("--offline", action="store_true", help="solo clasificador por reglas, sin red")
     p.add_argument("--json", help="ruta donde guardar el resultado en JSON")
