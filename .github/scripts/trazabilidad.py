@@ -272,6 +272,16 @@ ENDPOINTS = {
     "E8": "PUT /api/servicios/afiliaciones/{id}",
     "E9": "DELETE /api/servicios/afiliaciones/{id}",
     "E10": "POST /api/pruebas/procesar-diario",
+    # Núcleo común (HU-N-01..09): etiqueta @N<n> (features/api/nucleo_comun.feature)
+    "N1": "POST /api/usuarios",
+    "N2": "POST /api/auth/login",
+    "N3": "POST /api/auth/logout",
+    "N4": "GET /api/cuentas/me",
+    "N5": "PUT /api/cuentas/me",
+    "N6": "GET /api/cuentas/me/saldo",
+    "N7": "POST /api/cuentas/me/cierre",
+    "N8": "POST /api/transferencias",
+    "N9": "GET /api/transferencias/comision",
 }
 TIPOS = ["funcional", "tecnico"]
 RESULTADOS = ["passed", "xfailed", "failed"]  # las omitidas se cuentan aparte en los totales generales
