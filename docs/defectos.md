@@ -13,6 +13,7 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 | DEF-03 | Una deuda con 60 días de atraso pasa a cobranza y no se puede pagar | R-G2-04 | **Alta** | **Alta** | 2 |
 | DEF-04 | El débito automático paga deudas ya vencidas antes de activarlo, y sin mora | HU-G2-05 CA4 | Media | Media | 1 |
 | DEF-05 | Con ~1 200 usuarios simultáneos el servicio colapsa y no se recupera sin reinicio (rendimiento) | Requerimiento «Quincena Qolqe» | **Alta** | Media | estrés |
+| DEF-06 | La API responde antes de guardar los cambios: tras un login correcto la 1.ª petición puede dar 401 y las listas se repintan con datos viejos | Consistencia (login, afiliar, desafiliar, pagar) | **Alta** | **Alta** | 3 web (intermitente) |
 
 ---
 
@@ -139,3 +140,20 @@ Entorno común: Qolqe Wallet 1.0.0 (FastAPI), Python 3.12, Windows 11, `QOLQE_MO
 | OBS-03 | "API rejected schema-compliant request": `POST /api/servicios/pagos {"deuda_id": 7}` responde 422 `DEUDA_EN_COBRANZA`. | **No es defecto**: es la regla R-G2-04 (deuda con más de 60 días). El contrato no puede expresar reglas de negocio; el clasificador lo cuenta como "Válido según el contrato" con respuesta correcta. |
 
 Resultado positivo: desde que Schemathesis cubre las 9 operaciones `/api/servicios/*` (E1..E9) genera ~900–1 200 solicitudes por ejecución y **no hubo ningún 500**.
+
+---
+
+## DEF-06: La API responde antes de confirmar la transacción (carrera lectura tras escritura)
+
+| Campo | Valor |
+|---|---|
+| Módulo / requisito | Toda la API · `qolqe/dependencias.py` (`obtener_bd`) |
+| Severidad | **Alta**: el usuario ve datos viejos o es expulsado de la sesión |
+| Prioridad | **Alta** |
+| Entorno | Local: Windows 11, FastAPI 0.143, SQLite |
+| Pruebas que lo detectan | Web E2E con etiqueta `@DEF-06` (login por pantalla, refresco tras afiliar/pagar) |
+
+**Resultado esperado:** al recibir la respuesta de una escritura, un GET inmediato ya ve el cambio.
+**Resultado actual:** el commit se hace al cerrar la dependencia con `yield`, y FastAPI lo ejecuta *después* de enviar la respuesta. Reproducción por API (login y enseguida `GET /api/cuentas/me`): 109 de 200 respuestas fueron 401.
+**Efecto en la web:** tras un login correcto la primera petición puede dar 401 y la app manda a `/login?motivo=sesion`; tras afiliar, desafiliar o pagar, la lista se repinta con datos viejos.
+**Tratamiento en las pruebas:** los escenarios que lo exponen llevan `@defecto @DEF-06` y se marcan SKIP si fallan (`--skiponfailure defecto`); el resto verifica recargando la página.
