@@ -129,6 +129,14 @@ def test_suite_web_g2_y_nucleo():
     assert qase_subir.suite({**base, "hu": ["HU-G2-01"], "etiquetas": ["G2"]}) == 4
 
 
+def test_resultados_se_suben_en_lotes(servidor, monkeypatch):
+    monkeypatch.setattr(qase_subir, "LOTE", 3)  # Qase rechaza >200 por llamada; aquí 4 resultados → 2 lotes
+    assert _correr(servidor) == 0
+    lotes = [len(p[2]["results"]) for p in _pedidos("POST", "/result/QOLQE/7/bulk")]
+    assert lotes == [3, 1]
+    assert _pedidos("POST", "/run/QOLQE/7/complete")
+
+
 def test_reintenta_ante_429(servidor):
     FalsoQase.falla = [429, 503]
     assert _correr(servidor) == 0
