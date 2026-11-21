@@ -20,7 +20,7 @@ Proyecto 2 del curso **CS5383 Pruebas y Verificación de Software**. **Qolqe Wal
 
 | Parte | Herramienta | Alcance | Resultado |
 |---|---|---|---|
-| 1 · API | pytest + pytest-bdd + httpx · Schemathesis | 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 sobre E1–E10 (72 funcionales / 52 técnicas), más pruebas de API del núcleo común | 114 pasan · 10 fallos esperados (DEF-01…04) · 0 nuevos · 0 errores 500 |
+| 1 · API | pytest + pytest-bdd + httpx · Schemathesis | 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 sobre E1–E10 de G2, más 116 del núcleo común (N1–N9) (72 funcionales / 52 técnicas), más pruebas de API del núcleo común | 114 pasan · 10 fallos esperados (DEF-01…04) · 0 nuevos · 0 errores 500 |
 | 2 · Web | Robot Framework + Browser + robotframework-gherkin-parser | 27 escenarios Gherkin + 3 `.robot` (núcleo y G2) | 28 pasan · 2 SKIP por DEF-02 (DEF-06 intermitente) |
 | 2 · CI/CD | GitHub Actions + Pages + Qase | `contrato → (api ‖ web ‖ rendimiento) → quality-gate → reportes (siempre) → publicar (solo main)` | Ver [informe §5](docs/informe.md#5-pipeline-cicd-estructura-y-justificación-de-cada-job) y [§6 Quality Gates](docs/informe.md#6-quality-gates) |
 | 3 · Rendimiento | k6 | Carga, pico, estrés y resistencia | Cumple hasta ~1 000 VUs; colapso en 1 200 (DEF-05) |

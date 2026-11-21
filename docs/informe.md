@@ -244,11 +244,20 @@ Además, Schemathesis generó **945 solicitudes** desde el contrato en esa ejecu
 
 Pruebas de API del núcleo común en `features/api/nucleo_comun.feature`, con etiquetas de endpoint `@N<n>` (mismo esquema que `@E<n>` de G2) y de tipo `@funcional` / `@tecnico`.
 
-<!-- completar cifras del núcleo común API -->
-
 | Endpoint del núcleo | Funcional | Técnico | Total | Pasan | Fallo esperado |
 |---|---:|---:|---:|---:|---|
-| *(completar desde el REPORTE TOTAL de pytest)* | | | | | |
+| N1 `POST /api/usuarios` | 17 | 4 | **21** | 20 | 1 (DEF-08) |
+| N2 `POST /api/auth/login` | 10 | 5 | **15** | 14 | 1 (DEF-09) |
+| N3 `POST /api/auth/logout` | 3 | 2 | **5** | 4 | 1 (DEF-07) |
+| N4 `GET /api/cuentas/me` | 1 | 4 | **5** | 5 | 0 |
+| N5 `PUT /api/cuentas/me` | 10 | 2 | **12** | 12 | 0 |
+| N6 `GET /api/cuentas/me/saldo` | 1 | 2 | **3** | 3 | 0 |
+| N7 `POST /api/cuentas/me/cierre` | 5 | 2 | **7** | 7 | 0 |
+| N8 `POST /api/transferencias` | 25 | 8 | **33** | 29 | 4 (DEF-10, 12, 13, 14) |
+| N9 `GET /api/transferencias/comision` | 10 | 5 | **15** | 14 | 1 (DEF-11) |
+| **Total núcleo** | **82** | **34** | **116** | **108** | **8** · 0 fallos nuevos |
+
+Estas pruebas destaparon **8 defectos reales del núcleo común** (DEF-07 a DEF-14, sección 9), entre ellos que cerrar sesión no invalida el token y que el saldo puede quedar negativo. **Total de API del proyecto: 124 (G2) + 116 (núcleo) = 240 pruebas.**
 
 ### 4.3 Web: escenarios por HU
 
@@ -408,6 +417,14 @@ Resumen de [`docs/trazabilidad-qase.md`](trazabilidad-qase.md):
 | DEF-04 | El débito automático paga deudas ya vencidas, sin mora | HU-G2-05 CA4 | Media | Media | API E10 |
 | DEF-05 | Con ~1 200 usuarios simultáneos el servicio colapsa y no se recupera sin reinicio | «Quincena Qolqe» | **Alta** | Media | k6 estrés |
 | DEF-06 | La API responde antes de confirmar la transacción: tras un login la 1.ª petición puede dar 401 y las listas se repintan con datos viejos | Consistencia lectura tras escritura | **Alta** | **Alta** | Web (intermitente); reproducido por API: 109 de 200 respuestas 401 |
+| DEF-07 | Cerrar sesión no invalida el token (sigue respondiendo 200) | HU-N-03 CA1 | **Alta** | **Alta** | API N3 |
+| DEF-08 | Se acepta el PIN descendente `4321` | RN-03 | Media | Media | API N1 |
+| DEF-09 | Un login exitoso no reinicia el contador de intentos fallidos | RN-04 | Media | Media | API N2 |
+| DEF-10 | Se puede transferir a una cuenta cerrada | RN-07 · HU-N-06 CA4 | **Alta** | **Alta** | API N8 |
+| DEF-11 | La comisión redondea «al par» y no con redondeo comercial (71.00 → 1.06) | RN-09 | Baja | Baja | API N9 |
+| DEF-12 | El saldo puede quedar negativo: no se valida que cubra la comisión interbancaria | RN-08 | **Alta** | **Alta** | API N8 |
+| DEF-13 | Las transferencias interbancarias no cuentan para el límite diario | RN-06 | **Alta** | **Alta** | API N8 |
+| DEF-14 | Transferencias simultáneas superan el límite diario (3 × S/ 500 con límite de S/ 1 000) | RN-06 · HU-N-07 CA5 | **Alta** | **Alta** | API N8 |
 
 Observaciones del contrato (no son defectos funcionales): OBS-01 rango de enteros no documentado, OBS-02 cabecera `Allow` incompleta, OBS-03 regla R-G2-04 que el contrato no puede expresar. Pasos para reproducir, evidencia y causa probable: [`docs/defectos.md`](defectos.md).
 

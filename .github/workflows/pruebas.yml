@@ -98,7 +98,7 @@ jobs:
           needs = json.loads(os.environ["NEEDS"])
           criterios = [
             ("contrato",     "Contrato OpenAPI (Schemathesis)", "0 respuestas 5xx y cada validación con la respuesta correcta"),
-            ("api",          "API funcional + técnica",         "0 fallos nuevos (los defectos DEF-01..04 están como xfail estricto)"),
+            ("api",          "API funcional + técnica",         "0 fallos nuevos (los defectos conocidos DEF-01..04 y DEF-07..14 están como xfail estricto)"),
             ("web",          "Web E2E (Gherkin)",               "todas las ejecuciones seguidas en verde (3 de 3 por defecto)"),
             ("rendimiento",  "Rendimiento (k6 humo)",           "p95 consultas < 800 ms, p95 dinero < 1 500 ms, errores < 1 %, dinero íntegro"),
           ]
