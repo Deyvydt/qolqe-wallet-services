@@ -55,9 +55,10 @@ TEXTO = {"passed": "Pasa", "xfailed": "Fallo esperado (defecto conocido)", "fail
 # ---------------------------------------------------------------------------------------
 # 1. Lectura de resultados
 # ---------------------------------------------------------------------------------------
-def _caso(nivel, nombre, etiquetas, estado, defecto="", mensaje="", cp=""):
+def _caso(nivel, nombre, etiquetas, estado, defecto="", mensaje="", cp="", duracion_ms=0):
     """Un caso de prueba ya normalizado (igual para API y web)."""
     return {
+        "duracion_ms": duracion_ms,
         "nivel": nivel,
         "nombre": nombre,
         "cp": cp,
@@ -106,7 +107,7 @@ def leer_junit(ruta):
             estado, mensaje = "passed", ""
         nivel = "contrato" if "schemathesis" in etiquetas else "api"
         casos.append(_caso(nivel, nombre_legible(tc.get("name", "")), etiquetas, estado,
-                           defecto, _primera_linea(mensaje)))
+                           defecto, _primera_linea(mensaje), duracion_ms=_ms(tc.get("time"))))
     return casos
 
 
@@ -128,8 +129,29 @@ def leer_robot(ruta):
         cp = next((e for e in etiquetas if e.upper().startswith("CP-")), "")
         mensaje = status.text if status is not None and estado != "passed" else ""
         casos.append(_caso("web", test.get("name", ""), etiquetas, estado, defecto,
-                           _primera_linea(mensaje), cp))
+                           _primera_linea(mensaje), cp, _duracion_robot(status)))
     return casos
+
+
+def _ms(segundos):
+    try:
+        return round(float(segundos) * 1000)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _duracion_robot(status):
+    """Robot 7 guarda 'elapsed' (segundos); Robot 6, 'starttime'/'endtime' ('20240101 12:00:00.000')."""
+    if status is None:
+        return 0
+    if status.get("elapsed"):
+        return _ms(status.get("elapsed"))
+    try:
+        formato = "%Y%m%d %H:%M:%S.%f"
+        inicio, fin = (datetime.strptime(status.get(k), formato) for k in ("starttime", "endtime"))
+        return round((fin - inicio).total_seconds() * 1000)
+    except (TypeError, ValueError):
+        return 0
 
 
 def leer_reporte(ruta):
