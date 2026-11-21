@@ -81,6 +81,12 @@ jobs:
           cp uvicorn.log reportes/web/ 2>/dev/null || true
           python .github/scripts/resumen.py reportes/web/output.xml --titulo "Pruebas web E2E (Robot Framework)"
 
+      # evidencia = sin: además de no tomar capturas, se borran las trazas de Playwright
+      # (carpeta browser/), porque guardan fotogramas de pantalla: el reporte queda sin imágenes.
+      - name: Quitar la evidencia gráfica (solo si evidencia = sin)
+        if: ${{ !cancelled() && inputs.evidencia == 'sin' }}
+        run: rm -rf reportes/web/browser reportes/web/ejecucion-*/browser
+
       - name: Mostrar las pruebas omitidas por defecto conocido (@defecto)
         if: ${{ !cancelled() }}
         run: |
