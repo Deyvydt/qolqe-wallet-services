@@ -94,7 +94,7 @@ flowchart LR
     BDD & ST & RF & K6 -.JUnit XML / output.xml / JSON.-> PIPE
     PIPE --> PAGES["GitHub Pages<br/>reportes + matriz de trazabilidad"]
     PIPE --> QASE["Qase<br/>historial de runs por caso"]
-    PIPE --> TRI["Triaje de fallas<br/>(GitHub Models, solo sugiere)"]
+    PIPE --> TRI["Triaje de fallas<br/>(Claude, solo sugiere)"]
 ```
 
 | Aspecto | **API** | **Web** |
@@ -108,7 +108,7 @@ flowchart LR
 | Evidencia | JUnit XML + HTML + reporte total endpoint × tipo | `output.xml`, `report.html`, `log.html` (con o sin capturas) |
 | Job del pipeline | `contrato` (`_contrato.yml`) y `api` (`_api.yml`) | `web` (`_web.yml`), 3 ejecuciones seguidas |
 
-**Herramientas complementarias:** Schemathesis (contrato), k6 (rendimiento), Qase (gestión de casos e historial), GitHub Pages (evidencia), GitHub Models (triaje de fallas, solo sugiere).
+**Herramientas complementarias:** Schemathesis (contrato), k6 (rendimiento), Qase (gestión de casos e historial), GitHub Pages (evidencia), Claude API (triaje de fallas, solo sugiere).
 
 ### 2.2 Justificación de cada herramienta frente a alternativas
 
