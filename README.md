@@ -1,19 +1,125 @@
-# Qolqe Wallet
+# Qolqe Wallet · Pruebas del módulo G2 (Pago de servicios y afiliaciones)
 
-Billetera digital **ficticia** usada como sistema bajo prueba (SUT) en el Proyecto 2 del curso **CS5383 Pruebas y Verificación de Software**.
+Proyecto 2 del curso **CS5383 Pruebas y Verificación de Software**. **Qolqe Wallet** es una billetera digital **ficticia** (FastAPI + SQLite) que se usa como sistema bajo prueba (SUT). Este repositorio contiene las pruebas del grupo **G2** (trabajo individual): API, web E2E, rendimiento y el pipeline de CI/CD.
 
-> ⚠️ **Antes de empezar:**
-> - **No modifiquen el código de la carpeta `qolqe/`.** Su trabajo es probarlo, no repararlo.
-> - Todos los datos son ficticios.
+> ⚠️ **No se modifica el código de `qolqe/`**: el trabajo es probarlo, no repararlo. Todos los datos son ficticios.
+
+| Enlace | Qué hay |
+|---|---|
+| **Reportes publicados (GitHub Pages)** | https://deyvydt.github.io/qolqe-wallet-services/ |
+| Informe final (las 3 partes) | [`docs/informe.md`](docs/informe.md) |
+| Defectos DEF-01…06 | [`docs/defectos.md`](docs/defectos.md) |
+| Matriz de trazabilidad (último run publicado) | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
+| Historial de ejecuciones en Qase | [`docs/trazabilidad-qase.md`](docs/trazabilidad-qase.md) |
+| Triaje de fallas con IA (validación) | [`docs/ia/validacion_triaje.md`](docs/ia/validacion_triaje.md) |
+| Informe de rendimiento | [`docs/rendimiento/Informe_Rendimiento_G2.docx`](docs/rendimiento/Informe_Rendimiento_G2.docx) · herramienta: [`docs/rendimiento/herramienta.md`](docs/rendimiento/herramienta.md) |
+| Requisitos (HU, CA, reglas) | [`docs/requisitos.md`](docs/requisitos.md) |
+
+## Resumen
+
+| Parte | Herramienta | Alcance | Resultado |
+|---|---|---|---|
+| 1 · API | pytest + pytest-bdd + httpx · Schemathesis | 124 escenarios sobre E1–E10 (72 funcionales / 52 técnicos) | 114 pasan · 10 fallos esperados (DEF-01…04) · 0 nuevos · 0 errores 500 |
+| 2 · Web | Robot Framework + Browser + robotframework-gherkin-parser | 27 escenarios Gherkin + 3 `.robot` (núcleo y G2) | 28 pasan · 2 SKIP por DEF-02 (DEF-06 intermitente) |
+| 2 · CI/CD | GitHub Actions + Pages + Qase | `contrato → (api ‖ web ‖ rendimiento-humo) → quality-gate → reportes` | Ver [informe §5](docs/informe.md#5-pipeline-cicd-y-quality-gates) |
+| 3 · Rendimiento | k6 | Carga, pico, estrés y resistencia | Cumple hasta ~1 000 VUs; colapso en 1 200 (DEF-05) |
+
+## Estructura del repositorio
+
+```
+qolqe/                        App bajo prueba (NO modificar)
+features/
+  api/                        Escenarios Gherkin de la API, uno por grupo de endpoints (g2_*.feature)
+  e2e/                        Escenarios Gherkin web: nucleo_comun.feature, g2_servicios.feature
+    __init__.robot            Fixtures comunes de los escenarios web
+    pasos/                    Frase Gherkin → acciones de los Page Objects (nucleo.resource, g2.resource)
+tests/
+  conftest.py                 BD propia de pruebas, xfail por DEF y reportes en la terminal
+  test_humo.py                Prueba de humo (la app responde)
+  api/                        Pasos de pytest-bdd (conftest.py) y test_g2_pago_servicios.py
+  tecnico/                    Schemathesis desde el contrato OpenAPI y su clasificador
+  e2e/                        Casos .robot, pages/ (Page Objects) y resources/Comun.resource
+  performance/                Script k6 (qolqe.js), datos.py y ejecutar.py
+    resultados/               Evidencia por escenario: carga, pico, estres, resistencia
+  triaje/                     Casos etiquetados y pruebas unitarias del triaje de fallas
+.github/
+  workflows/                  pruebas.yml (orquestador), _api.yml, _web.yml
+  scripts/                    resumen.py, trazabilidad.py, portada.py, triaje_ia.py, validar_triaje.py
+docs/                         Informe, requisitos, defectos, trazabilidad, ia/, rendimiento/
+```
+
+## Cómo ejecutar
+
+### Instalación (una sola vez)
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate                      # macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt         # API, contrato y rendimiento (psutil, matplotlib)
+pip install -r requirements-e2e.txt         # web: Robot Framework, Browser, gherkin-parser
+rfbrowser init chromium                     # descarga Playwright + Chromium (requiere Node 20/22)
+```
+
+k6 se instala aparte (binario): https://grafana.com/docs/k6/latest/set-up/install-k6/
+
+### Parte 1 · API (no hace falta levantar la app)
+
+| Comando | Qué ejecuta |
+|---|---|
+| `pytest` | Todo: Gherkin de API + Schemathesis + humo + pruebas unitarias del triaje, y al final el **reporte total endpoint × tipo × resultado** |
+| `pytest tests/api tests/tecnico tests/test_humo.py` | Solo los 124 escenarios de API de G2 |
+| `pytest -m E3` | Un endpoint (`E1`…`E10`) |
+| `pytest -m "tecnico and E7"` | Un tipo dentro de un endpoint (`funcional` / `tecnico`) |
+| `pytest -m HU-G2-02` | Una historia (sirve cualquier etiqueta registrada en `pytest.ini`) |
+| `pytest -m schemathesis` | Solo la prueba de contrato |
+| `pytest --html=reportes/pytest/reporte.html --self-contained-html` | Todo, con reporte HTML |
+
+El reporte técnico de Schemathesis queda en `reportes/schemathesis/ultimo/reporte.html`. Por defecto Schemathesis es determinista; para casos nuevos al azar: `$env:SCHEMATHESIS_MODO="aleatorio"; pytest -m schemathesis`.
+
+### Parte 2 · Web E2E (con la app levantada)
+
+```bash
+# Terminal 1
+uvicorn qolqe.main:app --port 8000
+# Terminal 2 (en PowerShell, antes: $env:PYTHONIOENCODING='utf-8')
+robot --name "Web E2E" --parser GherkinParser --language es --skiponfailure defecto \
+      --outputdir reportes/web -v URL:http://127.0.0.1:8000 tests/e2e features/e2e
+```
+
+Opciones: `-v EVIDENCIA:sin` (sin capturas), `-v HEADLESS:False` (ver el navegador), `--include HU-G2-02` o `--include CP-W01` (filtrar). Reportes: `reportes/web/report.html` y `log.html`. Detalle en [`tests/e2e/README.md`](tests/e2e/README.md).
+
+### Parte 3 · Rendimiento (con la app levantada, sin `--reload`)
+
+```bash
+uvicorn qolqe.main:app --port 8000 --no-access-log
+python tests/performance/ejecutar.py humo          # 2 VUs, ~1 min
+python tests/performance/ejecutar.py carga         # 100 VUs, 13 min
+python tests/performance/ejecutar.py pico          # 300 VUs, 16 min
+python tests/performance/ejecutar.py estres        # escalones de +200 VUs hasta 1 600
+python tests/performance/ejecutar.py resistencia   # 100 VUs, 33 min
+```
+
+Resultados en `tests/performance/resultados/<escenario>/` (ver [`tests/performance/README.md`](tests/performance/README.md)). El informe Word se regenera con `python docs/rendimiento/generar_informe.py docs/rendimiento/Template_Informe_Rendimiento.docx`.
+
+### Pipeline y herramientas auxiliares
+
+| Comando | Para qué |
+|---|---|
+| GitHub → *Actions* → *Pruebas G2* → *Run workflow* | Ejecución manual del pipeline |
+| `python .github/scripts/trazabilidad.py --api reportes/api/junit.xml --web reportes/web/output.xml --salida-md docs/trazabilidad.md` | Regenerar la matriz de trazabilidad desde reportes locales |
+| `python .github/scripts/triaje_ia.py reportes/api/junit.xml reportes/web/output.xml --offline` | Triaje de las fallas con la línea base por reglas (sin red) |
+| `python .github/scripts/validar_triaje.py --salida docs/ia/validacion_triaje.md` | Validar el triaje contra los casos etiquetados (con `GITHUB_TOKEN` evalúa también el modelo) |
 
 ---
 
-## 1. Requisitos
+# Referencia del sistema bajo prueba (Qolqe)
+
+## Requisitos
 
 - Python **3.11 o superior** (recomendado 3.12)
 - Git
 
-## 2. Instalación y ejecución
+## Instalación y ejecución
 
 ```bash
 python -m venv .venv
@@ -44,7 +150,7 @@ La primera vez la app crea la base de datos en `datos/` (tarda unos segundos por
 
 ---
 
-## 3. Funcionalidades
+## Funcionalidades
 
 | Módulo | Pantalla | Endpoints principales |
 |---|---|---|
@@ -106,7 +212,7 @@ El contrato completo está en `/docs` (Swagger) y en `/openapi.json`. Cada opera
 
 ---
 
-## 4. Datos de prueba
+## Datos de prueba
 
 Se restauran con `POST /api/pruebas/reiniciar`. Las fechas de las deudas y algunos movimientos se calculan **respecto del día actual** del reloj de la app.
 
@@ -158,7 +264,7 @@ Usen cualquier CCI de 20 dígitos, por ejemplo `00219300123456789012`.
 
 ---
 
-## 5. API de soporte para pruebas
+## API de soporte para pruebas
 
 Disponible solo con `QOLQE_MODO_PRUEBA=1`. **No forma parte del producto**: existe para que las pruebas automatizadas sean repetibles.
 
@@ -175,130 +281,3 @@ Disponible solo con `QOLQE_MODO_PRUEBA=1`. **No forma parte del producto**: exis
 > 💡 Para probar el proceso diario: fijen o adelanten el reloj al día que necesiten y luego llamen a `POST /api/pruebas/procesar-diario`.
 >
 > 💡 Si sus pruebas modifican datos (transferencias, bloqueos, límites), reinicien los datos antes de cada prueba o diseñen datos independientes. Así cumplen la propiedad *Independent* de FIRST.
-
----
-
-## 6. Estructura sugerida del repositorio del grupo
-
-```
-qolqe/                    # App (NO modificar)
-features/                 # Casos del módulo en Gherkin
-tests/
-  api/                    # Parte 1
-  e2e/pages/              # Parte 2 (Page Objects)
-  performance/            # Parte 3
-docs/                     # Herramienta, trazabilidad, rendimiento, defectos
-.github/workflows/        # Pipeline (Parte 2)
-IA.md                     # Declaración de uso de IA
-```
-
-En `docs/` encontrarán la especificación de requisitos, la plantilla del informe del proyecto y la plantilla del reporte de defectos; en la raíz, la plantilla de `IA.md`.
-
----
-
-## 7. Pruebas del módulo G2 · Pago de servicios (Entrega 1)
-
-Pruebas de API automatizadas del módulo **G2**, con foco en las HU de prioridad **Alta**: **HU-G2-01 Consultar deudas** y **HU-G2-02 Pagar una deuda**. Además, como extra, HU-G2-05 (débito automático) y HU-G2-07 CA2 (comprobante de otro usuario).
-
-| Tipo | Herramienta | De dónde salen los casos |
-|---|---|---|
-| **Funcional** | pytest + **pytest-bdd** + httpx (TestClient) | Escenarios Gherkin en español (`features/api/*.feature`) escritos a partir de las HU, con partición de equivalencia y valores límite |
-| **Técnica** | **Schemathesis** (dentro de pytest) | Se generan automáticamente desde el contrato OpenAPI (`/openapi.json`) de las 9 operaciones `/api/servicios/*` (E1..E9) |
-
-### 7.1 Instalación y ejecución
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate              # macOS/Linux: source .venv/bin/activate
-pip install -r requirements-dev.txt
-pytest                              # corre TODO: funcional + técnico + resúmenes
-```
-
-No hace falta levantar la app: las pruebas funcionales usan TestClient y la prueba técnica levanta Qolqe sola en un puerto libre. Las pruebas usan su propia base de datos (`datos/pruebas.db`), así que no tocan la de la demo. Una ejecución completa tarda unos 45 segundos.
-
-| Comando | Qué ejecuta |
-|---|---|
-| `pytest` | Todo, y al final los dos resúmenes en la terminal |
-| `pytest -v` | Igual, pero con una línea por caso |
-| `pytest -v -m "HU-G2-02"` | Solo **Pagar una deuda**. Sirve cualquier etiqueta del `.feature`: `HU-G2-01`, `HU-G2-05`, `CA1`, `valor-limite`, `seguridad`… |
-| `pytest -m schemathesis` | Solo la prueba técnica desde el contrato |
-| `pytest --html=reportes/pytest/reporte.html --self-contained-html` | Todo, más el reporte HTML funcional |
-| `$env:SCHEMATHESIS_MODO="aleatorio"; pytest -m schemathesis` | Prueba técnica con casos nuevos al azar. Por defecto es **determinista**: los mismos casos en cada ejecución |
-
-### 7.2 Resúmenes automáticos en la terminal
-
-Cada `pytest` calcula los resúmenes con los resultados de **esa** ejecución (lo hace `tests/conftest.py`):
-
-- **RESUMEN FUNCIONAL:** casos, pasan y fallan por **historia de usuario** y por **técnica**. Luego, cada fallo con su mensaje *esperado vs. obtenido* y el **defecto** al que corresponde (DEF-01 a DEF-04). Un fallo que no corresponda a un defecto ya conocido aparece como **`NUEVO, analizar`**: eso indica una regresión o un defecto nuevo.
-- **RESUMEN TÉCNICO:** número de casos generados por Schemathesis, errores 500 y una tabla por **validación de entrada** con cuántos casos hubo, si la API respondió bien y en qué filas del reporte están.
-
-### 7.3 Reportes
-
-| Reporte | Cómo se genera | Cómo se abre |
-|---|---|---|
-| Funcional (pytest-html) | `pytest --html=reportes/pytest/reporte.html --self-contained-html` | `start reportes\pytest\reporte.html` |
-| Funcional, solo pagar deuda | `pytest -m "HU-G2-02" --html=reportes/pytest/hu-g2-02.html --self-contained-html` | `start reportes\pytest\hu-g2-02.html` |
-| Técnico (Schemathesis) | Automático en cada `pytest` o `pytest -m schemathesis` | `start reportes\schemathesis\ultimo\reporte.html` |
-
-`reportes/` está en `.gitignore`: es evidencia local y se regenera en cada ejecución. El reporte técnico incluye la tabla *"Dónde está cada validación de entrada"* y el detalle de cada caso: cuerpo enviado, estado HTTP y respuesta.
-
-### 7.4 Casos funcionales de HU-G2-02 · Pagar una deuda
-
-Archivo: `features/api/g2_pagar_deuda.feature` (20 casos).
-
-| Escenario | CA / regla | Técnica | Casos |
-|---|---|---|---|
-| Pago exitoso antes del vencimiento (comprobante y saldo) | CA1, CA4 | Camino feliz | 1 |
-| Mora de 0.5 % diario con tope de 10 %: días −1, 0, 1, 19, 20, 21 y 60 | CA1 · R-G2-03 | Valores límite | 7 |
-| El saldo debe cubrir monto + mora: un céntimo menos / saldo exacto | CA1 · RN-08 | Valores límite | 2 |
-| Deuda inexistente → 404 `DEUDA_NO_ENCONTRADA` | CA2 | Partición | 1 |
-| Deuda ya pagada → 409 `DEUDA_YA_PAGADA` (el saldo no cambia) | CA2 | Efecto | 1 |
-| Deuda en cobranza (61 días) → 422 `DEUDA_EN_COBRANZA` (el saldo no cambia) | CA2 · R-G2-04 | Efecto | 1 |
-| Dos pagos simultáneos: uno 201 y otro 409 | CA3 | Concurrencia | 1 |
-| El pago genera un movimiento con el mismo código | CA4 · RN-10 | Efecto | 1 |
-| Comprobante de otro usuario → 404 | HU-G2-07 CA2 | Seguridad | 1 |
-| Pagar sin token → 401 | — | Seguridad | 1 |
-| `deuda_id` con tipo inválido: `{}`, `"abc"`, `null` → 422 | — | Técnica (partición) | 3 |
-
-El resto de los casos está en `features/api/g2_consultar_deudas.feature` (HU-G2-01: empresa, longitud del suministro de 7, 8, 12 y 13 dígitos, formato, orden, campos, estado a los 59, 60 y 61 días, sin deudas) y en `features/api/g2_debito_automatico.feature` (HU-G2-05).
-
-### 7.5 Validaciones de entrada: dónde se prueba cada una
-
-| Validación | Funcional (`.feature`, diseñadas a mano) | Técnica (Schemathesis, generadas desde el contrato) |
-|---|---|---|
-| Obligatoriedad (`deuda_id` requerido) | `{}` → 422 | Objetos sin `deuda_id` → 422 |
-| Tipo de dato (`deuda_id` entero, cuerpo objeto) | `"abc"`, `null` → 422 | Texto, decimales, booleanos, listas y cuerpos que no son objeto → 422 |
-| Rango | Id inexistente (999999) → 404 | Ids cero o negativos → no paga nada |
-| Longitud y formato | Suministro de 7, 8, 12 y 13 dígitos; letras, espacios y signo (HU-G2-01) | — (el contrato no define longitudes) |
-| Cabecera de autenticación | Sin token → 401 | Sin token y token inválido → 401 |
-| Cabecera `Content-Type` | — | Sin `Content-Type` → 422 |
-| Métodos HTTP | — | PUT, PATCH, OPTIONS y TRACE en la ruta de pago → 405 |
-| Robustez | — | Ningún caso responde 500 |
-
-### 7.6 Resultados y defectos
-
-| Tipo | Casos | Pasan | Fallan |
-|---|---|---|---|
-| Funcional (incluye la prueba de humo) | 42 | 33 | 9 → 4 defectos |
-| Funcional · solo HU-G2-02 | 20 | 16 | 4 → DEF-02 y DEF-03 |
-| Técnico · `POST /api/servicios/pagos` | 61 generados | Todos responden bien | 0 errores 500 · 1 observación (cabecera `Allow`) |
-
-| ID | Defecto | Severidad |
-|---|---|---|
-| DEF-01 | Se acepta un suministro de 13 dígitos (R-G2-01) | Baja |
-| DEF-02 | Se cobra mora el mismo día del vencimiento: los días de atraso se cuentan +1 (R-G2-03) | Alta |
-| DEF-03 | Una deuda con 60 días pasa a cobranza y no se puede pagar (R-G2-04) | Alta |
-| DEF-04 | El débito automático paga deudas ya vencidas y sin mora (HU-G2-05 CA4) | Media |
-
-Las fallas son esperadas: cada una evidencia un defecto real. El detalle, con pasos para reproducir, está en `docs/defectos.md`, y el informe en `docs/informe.md`.
-
-### 7.7 Archivos de las pruebas
-
-| Archivo | Qué es |
-|---|---|
-| `features/api/g2_*.feature` | Escenarios Gherkin por HU, con etiquetas `@funcional`/`@tecnico`, `@E1`..`@E10` (endpoint), `@HU-G2-0x @CAn @técnica` para la trazabilidad |
-| `tests/api/conftest.py` | Pasos de pytest-bdd: conectan cada frase del Gherkin con una llamada a la API y su verificación |
-| `tests/api/test_g2_pago_servicios.py` | Convierte cada escenario de los `.feature` en una prueba de pytest |
-| `tests/tecnico/test_contrato_schemathesis.py` | Prueba técnica: levanta la app, ejecuta Schemathesis y falla si hay un 500 o una validación mal respondida |
-| `tests/tecnico/clasificacion_contrato.py` | Clasifica los casos de Schemathesis por validación de entrada y genera su reporte HTML |
-| `tests/conftest.py` | Base de datos propia para las pruebas y los resúmenes automáticos de la terminal |
