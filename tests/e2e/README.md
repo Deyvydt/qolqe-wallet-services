@@ -104,7 +104,7 @@ Los escenarios con `@defecto @DEF-0X` esperan el comportamiento **correcto** seg
 | Defecto | Escenario | Qué se ve en la web |
 |---|---|---|
 | DEF-02 (ya reportado) | *La mora del comprobante respeta R-G2-03* (2 ejemplos) | Recibo que vence hoy: total S/ 85.93 (esperado S/ 85.50). Vencido hace 5 días: S/ 80.65 (esperado S/ 80.26) |
-| **DEF-06 (nuevo)** | *Ana inicia sesión…*, *Un visitante crea su cuenta…*, *La lista de afiliaciones se actualiza al instante…* | La API responde **antes** de guardar (commit) los cambios. Justo después de un login, la primera petición puede recibir 401 y la app expulsa al usuario a `/login?motivo=sesion`; tras desafiliar o pagar, la lista se repinta con datos viejos. Es intermitente |
+| **DEF-06 (nuevo)** | *Ana inicia sesión…*, *La lista de afiliaciones se actualiza al instante…* | La API responde **antes** de guardar (commit) los cambios. Justo después de un login, la primera petición puede recibir 401 y la app expulsa al usuario a `/login?motivo=sesion`; tras desafiliar o pagar, la lista se repinta con datos viejos. Es intermitente |
 
 Para que el resto de escenarios sea estable sin esconder DEF-06: las **precondiciones** (`Dado que Ana inició sesión`) inician sesión por API y esperan a que la sesión exista (`LoginPage.Iniciar Sesion Por API`), y lo guardado tras una acción se verifica **recargando la página** (`Comun.Comprobar`: hasta 5 recargas, porque el commit llega después de la respuesta). Los escenarios cuyo objetivo es el login o el refresco inmediato siguen haciéndolo por la pantalla y llevan `@DEF-06`.
 

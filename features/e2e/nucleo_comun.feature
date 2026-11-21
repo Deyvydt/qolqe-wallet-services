@@ -13,18 +13,18 @@ Característica: Núcleo común por la interfaz web
   quiero registrarme, ingresar, ver y editar mis datos y transferir dinero
   para usar mi billetera desde el navegador
 
-  # @DEF-06: tras un login exitoso por la pantalla, /inicio a veces recibe 401 (la sesión se
-  # guarda después de responder). Si ocurre, Robot lo reporta como SKIP con el fallo original.
-  @HU-N-01 @CA1 @camino-feliz @defecto @DEF-06
+  @HU-N-01 @CA1 @camino-feliz
   Escenario: Un visitante crea su cuenta y la usa con saldo S/ 0.00
     Dado que estoy en la página de registro
     Cuando me registro con DNI "61234567", nombres "Lucía Mamani Flores", celular "911222333" y PIN "5173"
     Entonces veo el aviso de inicio de sesión "Tu cuenta fue creada. Ya puedes ingresar."
-    Cuando ingreso con celular "911222333" y PIN "5173"
+    Cuando que inicié sesión con celular "911222333" y PIN "5173"
     Entonces estoy en la página de inicio
     Y veo mi saldo "S/ 0.00"
 
-  @HU-N-02 @CA1 @camino-feliz @defecto @DEF-06
+  # @DEF-06: tras un login correcto, /inicio a veces recibe 401 (la sesión se guarda después de
+  # responder). Solo esa firma (motivo=sesion) sale SKIP; cualquier otro fallo del login es FAIL.
+  @HU-N-02 @CA1 @camino-feliz @DEF-06
   Escenario: Ana inicia sesión con sus credenciales correctas
     Dado que estoy en la página de login
     Cuando ingreso con celular "987654321" y PIN "4826"

@@ -217,7 +217,7 @@ Esta sección responde a las observaciones *«no se distinguen los escenarios de
 
 ### 4.1 API G2: endpoint × tipo
 
-Ejecución local del 20/11/2026 (`pytest tests/api tests/tecnico tests/test_humo.py`): **113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124**. Técnico = escenarios `@tecnico` del Gherkin + 1 prueba Schemathesis por endpoint.
+Solo módulo G2: **113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124** (el núcleo común está en la sección 4.2). Técnico = escenarios `@tecnico` del Gherkin + 1 prueba Schemathesis por endpoint.
 
 | Endpoint | Funcional | Técnico | Total | Pasan | Fallo esperado (DEF) |
 |---|---:|---:|---:|---:|---|
@@ -269,7 +269,7 @@ Estas pruebas destaparon **8 defectos reales del núcleo común** (DEF-07 a DEF-
 | `g2_servicios.feature` | HU-G2-01…07 | 14 | Pagar luz y agua (CP-W01/02), mora R-G2-03 (2 ejemplos, `@DEF-02`), sin deudas, suministro corto, afiliar (CP-W03) y suministro inexistente, alias, débito, desafiliar (con y sin débito), filtrar pagos, refresco tras desafiliar (`@DEF-06`) |
 | `tests/e2e/*.robot` | HU-G2-01/02/03 | 3 | CP-W01, CP-W02, CP-W03 en estilo `.robot` |
 
-Resultado esperado de la suite: `30 tests, 28 passed, 0 failed, 2 skipped` (los 2 *skip* son DEF-02; si aparece el intermitente DEF-06 puede haber más *skip*, nunca *fail*).
+Resultado esperado de la suite: `30 tests, 28 passed, 0 failed, 2 skipped` (los 2 *skip* son DEF-02; si aparece DEF-06 en el login por pantalla, ese escenario sale *skip* solo con la firma exacta del defecto; cualquier otro fallo es *fail*).
 
 ### 4.4 Cómo se leen las etiquetas
 

@@ -19,7 +19,7 @@ ${PIN_ANA}        4826
 Ana paga su recibo de luz (caso .robot)
     [Documentation]    Deuda ELECTRO 10000001: S/ 120.00, vence en 10 días (sin mora).
     ...                Saldo inicial de Ana: S/ 1,500.00 → saldo final: S/ 1,380.00
-    [Tags]    G2    e2e    happy-path    HU-G2-01    HU-G2-02    CA1    CA4    CP-W01    defecto    DEF-06
+    [Tags]    G2    e2e    happy-path    HU-G2-01    HU-G2-02    CA1    CA4    CP-W01
     Given Ana ha iniciado sesion
     When consulta la deuda del suministro    ELECTRO    10000001
     And paga la deuda por un total de    S/ 120.00
@@ -30,8 +30,7 @@ Ana paga su recibo de luz (caso .robot)
 # Pasos estilo BDD (Given/When/Then). Cada paso llama a un Page Object.
 Ana ha iniciado sesion
     Abrir Pagina De Login
-    Iniciar Sesion    ${CELULAR_ANA}    ${PIN_ANA}
-    Deberia Estar En Inicio
+    Iniciar Sesion Por API    ${CELULAR_ANA}    ${PIN_ANA}
 
 consulta la deuda del suministro
     [Arguments]    ${empresa}    ${suministro}
