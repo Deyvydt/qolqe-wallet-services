@@ -12,7 +12,7 @@
 5. [Pipeline CI/CD: estructura y justificación de cada job](#5-pipeline-cicd-estructura-y-justificación-de-cada-job)
 6. [Quality Gates](#6-quality-gates)
 7. [Trazabilidad con ejecuciones múltiples](#7-trazabilidad-con-ejecuciones-múltiples)
-8. [Capacidad de IA en el pipeline: triaje de fallas](#8-capacidad-de-ia-en-el-pipeline-triaje-de-fallas)
+8. [Capacidad de IA: agente de triaje en el pipeline y rf-mcp en las pruebas web](#8-capacidad-de-ia-en-el-pipeline-triaje-de-fallas)
 9. [Defectos](#9-defectos)
 10. [Rendimiento](#10-rendimiento)
 11. [Conclusiones, limitaciones y trabajo futuro](#11-conclusiones-limitaciones-y-trabajo-futuro)
@@ -404,6 +404,19 @@ Resumen de [`docs/trazabilidad-qase.md`](trazabilidad-qase.md):
 | Límites | 10 casos son pocos (resultado orientativo); la línea base es optimista porque sus reglas salen de las mismas huellas de `defectos.md`; un timeout de carga (DEF-05) es difícil de separar de «entorno» |
 
 **Resultado de la validación con el modelo (Claude `claude-haiku-5-5`, 10 casos etiquetados, 20/11/2026):** el agente acierta **10/10** en categoría y **10/10** en defecto asignado, frente a **9/10** y **10/10** de la línea base por reglas. Consultó herramientas (`leer_defectos`, `leer_fragmento_codigo`) en los 10 casos y corrigió el caso C09 (prueba frágil por timing) que las reglas clasificaban como defecto real. Detalle caso por caso en `docs/ia/validacion_triaje.md`. **Límite:** 10 casos, con 5 defectos que el agente puede leer en `docs/defectos.md`; mide el reconocimiento de lo documentado, no generalización, y por eso el triaje solo sugiere.
+
+### 8.1 IA en la construcción de las pruebas web (rf-mcp)
+
+Además del agente de triaje del pipeline, la IA se usó antes para **crear casos E2E**, siempre con revisión humana. El registro de aquella entrega está en el historial de git (commits `d64cbc6` y `f926b38`).
+
+| Herramienta | Tarea | Qué aceptamos | Qué corregimos o descartamos, y por qué |
+|---|---|---|---|
+| **rf-mcp** (servidor MCP de Robot Framework + Browser Library) con un asistente de código | Generar **en vivo** el caso «Ana paga su recibo de agua» (CP-W02, `tests/e2e/pago_agua.robot`): el agente ejecutó cada paso en un navegador real y luego emitió el `.robot` | Los `data-testid` que encontró, el orden de los pasos y las aserciones del comprobante (S/ 45.00 y saldo S/ 1,455.00): pasaron en vivo | El `.robot` crudo repetía selectores sueltos, dejaba fijos la URL, `headless=False` y `slowMo`, no usaba los fixtures, y escribía el PIN con `Fill Text` (queda visible en el log; el Page Object usa `Fill Secret`). Se refactorizó a Page Objects. |
+| Asistente de IA (chat) | Caso de afiliación CP-W03 (`tests/e2e/afiliacion.robot`) a partir de `ServiciosPage.resource` | Los pasos y los `data-testid` de afiliación | La primera versión era **frágil**: escribía antes de que la pantalla cargara. Se añadió una espera por condición en `Ir A Pagar Servicios`. |
+
+**Cómo se validó:** cada caso se ejecutó en un navegador real antes de aceptarse y se repitió varias veces seguidas (hoy forman parte de las 3 ejecuciones consecutivas del pipeline, tabla de la sección 6). Lo generado nunca entró tal cual: se revisó, se refactorizó al patrón del proyecto (sección 3) y se comparó contra el comportamiento esperado de las historias de usuario.
+
+**Qué aprendimos:** la IA acelera encontrar localizadores y esqueletos de pasos, pero produce pruebas frágiles y con malas prácticas (esperas fijas, datos sensibles en el log) si no se revisa. Por eso en la entrega final la IA **sugiere** (triaje, generación de borradores) y una persona **decide**.
 
 ---
 
