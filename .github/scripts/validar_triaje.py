@@ -6,7 +6,7 @@ PARA QUÉ:
   Escribe una tabla caso por caso en Markdown.
 
 CÓMO SE USA (desde la raíz del repo):
-  GITHUB_TOKEN=$(gh auth token) python .github/scripts/validar_triaje.py --salida docs/ia/validacion_triaje.md
+  GITHUB_TOKEN=$(gh auth token) python .github/scripts/validar_triaje.py --destino docs
   Sin GITHUB_TOKEN solo evalúa la línea base (lo dice en el reporte; no inventa cifras).
 """
 import argparse
@@ -31,21 +31,18 @@ def _ok(r, c, campo):
     return "✅" if r[campo] == c["esperado"][campo] else "❌"
 
 
-def ruta_segura(ruta, permitidas):
-    """Solo se escribe en carpetas conocidas del repo (evita que un argumento escriba fuera)."""
-    ruta = os.path.normpath(ruta).replace("\\", "/")
-    carpeta, nombre = os.path.split(ruta)
-    if carpeta not in permitidas or not nombre or nombre.startswith("."):
-        raise SystemExit(f"La salida debe estar en una de estas carpetas: {', '.join(permitidas)}")
-    return Path(carpeta) / os.path.basename(nombre)
+# Destinos fijos: el argumento solo elige entre ellos, no escribe en rutas arbitrarias.
+DESTINOS = {
+    "docs": (Path("docs/ia/validacion_triaje.md"), None),
+    "ci": (Path("reportes/triaje/validacion.md"), Path("reportes/triaje/validacion.json")),
+}
 
 
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser()
-    p.add_argument("--salida", help="Markdown de resultados (si no, pantalla)")
-    p.add_argument("--json", help="guardar las respuestas crudas en JSON")
+    p.add_argument("--destino", choices=sorted(DESTINOS), help="docs = docs/ia/validacion_triaje.md; ci = reportes/triaje/ (si no, pantalla)")
     args = p.parse_args()
 
     casos = json.loads(CASOS.read_text(encoding="utf-8"))["casos"]
@@ -76,14 +73,15 @@ def main():
         out.append(f"| {c['id']} | {esp} | {reg} | {iat} | {herr} | {conf} |")
     texto = "\n".join(out) + "\n"
 
-    if args.salida:
-        salida = ruta_segura(args.salida, ("docs/ia", "reportes/triaje"))
+    if args.destino:
+        salida, destino_json = DESTINOS[args.destino]
+        salida.parent.mkdir(parents=True, exist_ok=True)
         previo = salida.read_text(encoding="utf-8") if salida.is_file() else ""
         marca = previo.find("\n> Las tablas de arriba")  # el análisis escrito a mano se conserva
         salida.write_text(texto + (previo[marca:] if marca >= 0 else ""), encoding="utf-8")
     print(texto)
-    if args.json:
-        ruta_segura(args.json, ("docs/ia", "reportes/triaje")).write_text(json.dumps({"base": base, "ia": ia, "aviso": aviso}, ensure_ascii=False, indent=2),
+    if args.destino and DESTINOS[args.destino][1]:
+        DESTINOS[args.destino][1].write_text(json.dumps({"base": base, "ia": ia, "aviso": aviso}, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
     return 0
 

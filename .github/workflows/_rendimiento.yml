@@ -30,7 +30,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install --only-binary=:all: -r requirements.txt psutil matplotlib
+          pip install --only-binary=:all: -c requirements-lock.txt -r requirements.txt psutil matplotlib
 
       - name: Instalar k6
         uses: grafana/setup-k6-action@028f4093bd657dad286be8f4e983cda9b1f8ec4b  # v1.3.0

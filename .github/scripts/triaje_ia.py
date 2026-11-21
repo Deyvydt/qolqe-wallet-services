@@ -209,10 +209,16 @@ def _llamar_modelo(mensajes, token):
                          "temperature": 0}).encode()
     for intento in range(2):
         req = urllib.request.Request(ENDPOINT, data=cuerpo, method="POST", headers={
-            "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            "Authorization": f"Bearer {token}", "Content-Type": "application/json",
+            "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "qolqe-triaje"})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
-                return json.load(r)["choices"][0]["message"]
+                crudo = r.read()
+                try:
+                    return json.loads(crudo)["choices"][0]["message"]
+                except ValueError as error:
+                    raise IANoDisponible(f"respuesta no JSON (HTTP {r.status}): {crudo[:120]!r}") from error
         except urllib.error.HTTPError as error:
             espera = int(error.headers.get("Retry-After") or 0)
             if error.code == 429 and intento == 0 and espera <= 30:

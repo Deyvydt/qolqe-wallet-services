@@ -173,7 +173,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRIAJE_MODELO: openai/gpt-4.1-mini
-        run: python .github/scripts/validar_triaje.py --salida reportes/triaje/validacion.md --json reportes/triaje/validacion.json
+        run: python .github/scripts/validar_triaje.py --destino ci
 
       - name: Guardar el triaje como artefacto
         if: ${{ !cancelled() }}

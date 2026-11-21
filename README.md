@@ -108,7 +108,7 @@ Resultados en `tests/performance/resultados/<escenario>/` (ver [`tests/performan
 | GitHub → *Actions* → *Pruebas G2* → *Run workflow* | Ejecución manual del pipeline |
 | `python .github/scripts/trazabilidad.py --api reportes/api/junit.xml --web reportes/web/output.xml --salida-md docs/trazabilidad.md` | Regenerar la matriz de trazabilidad desde reportes locales |
 | `python .github/scripts/triaje_ia.py reportes/api/junit.xml reportes/web/output.xml --offline` | Triaje de las fallas con la línea base por reglas (sin red) |
-| `python .github/scripts/validar_triaje.py --salida docs/ia/validacion_triaje.md` | Validar el triaje contra los casos etiquetados (con `GITHUB_TOKEN` evalúa también el modelo) |
+| `python .github/scripts/validar_triaje.py --destino docs` | Validar el triaje contra los casos etiquetados (con `GITHUB_TOKEN` evalúa también el modelo) |
 
 ---
 
