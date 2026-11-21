@@ -119,6 +119,7 @@ REGLAS_DEF = [
     ("DEF-01", r"SUMINISTRO_INVALIDO|\b\d{13}\b"),
     ("DEF-02", r"d[ií]as de atraso|dias_atraso|mora"),
     ("DEF-05", r"database is locked|estr[eé]s|1 ?200 VUs"),
+    ("DEF-06", r"motivo=sesion|datos viejos|actualiza al instante|responde antes de guardar"),
 ]
 
 
@@ -312,6 +313,15 @@ def generar_md(resultados, aviso):
     return "\n".join(out + [""])
 
 
+def ruta_segura(ruta, permitidas):
+    """Solo se escribe en carpetas conocidas del repo (evita que un argumento escriba fuera)."""
+    ruta = os.path.normpath(ruta).replace("\\", "/")
+    carpeta, nombre = os.path.split(ruta)
+    if carpeta not in permitidas or not nombre or nombre.startswith("."):
+        raise SystemExit(f"La salida debe estar en una de estas carpetas: {', '.join(permitidas)}")
+    return Path(carpeta) / os.path.basename(nombre)
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -325,8 +335,9 @@ def main():
         resultados, aviso = triar(fallas, args.offline, os.environ.get("GITHUB_TOKEN"))
         agregar_a_summary(generar_md(resultados, aviso))
         if args.json:
-            Path(args.json).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.json).write_text(json.dumps({"modelo": MODELO, "aviso": aviso, "resultados": resultados},
+            destino = ruta_segura(args.json, ("reportes/triaje", "docs/ia"))
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_text(json.dumps({"modelo": MODELO, "aviso": aviso, "resultados": resultados},
                                                   ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as error:  # el triaje nunca bloquea el pipeline
         agregar_a_summary(f"## 🤖 Triaje de fallas (IA)\n\nTriaje no disponible: {error}\n")

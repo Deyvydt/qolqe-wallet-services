@@ -38,6 +38,9 @@ jobs:
           --junitxml=reportes/api/junit.xml
           --html=reportes/api/reporte.html --self-contained-html
 
+      - name: Pruebas unitarias de las herramientas del pipeline (triaje y Qase)
+        run: pytest tests/triaje tests/qase -q
+
       - name: Resumen en la página del run
         if: ${{ !cancelled() }}
         run: python .github/scripts/resumen.py reportes/api/junit.xml --titulo "Pruebas de API (pytest-bdd)"

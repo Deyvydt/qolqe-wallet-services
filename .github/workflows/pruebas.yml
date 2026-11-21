@@ -50,7 +50,8 @@ on:
 # Si llega un push nuevo a la misma rama, se cancela el run anterior (no tiene sentido terminarlo).
 concurrency:
   group: pruebas-${{ github.ref }}
-  cancel-in-progress: true
+  # En main no se cancela: cortar un deploy de Pages a la mitad dejaría el sitio roto.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -98,7 +99,7 @@ jobs:
           criterios = [
             ("contrato",     "Contrato OpenAPI (Schemathesis)", "0 respuestas 5xx y cada validación con la respuesta correcta"),
             ("api",          "API funcional + técnica",         "0 fallos nuevos (los defectos DEF-01..04 están como xfail estricto)"),
-            ("web",          "Web E2E (Gherkin)",               "todas las ejecuciones seguidas en verde (3 de 3)"),
+            ("web",          "Web E2E (Gherkin)",               "todas las ejecuciones seguidas en verde (3 de 3 por defecto)"),
             ("rendimiento",  "Rendimiento (k6 humo)",           "p95 consultas < 800 ms, p95 dinero < 1 500 ms, errores < 1 %, dinero íntegro"),
           ]
           icono = {"success": "✅ aprobado", "skipped": "⏭️ no aplica", "failure": "❌ FALLÓ", "cancelled": "⚠️ cancelado"}
@@ -167,6 +168,12 @@ jobs:
           python .github/scripts/triaje_ia.py
           reportes/api/junit.xml reportes/contrato/junit.xml reportes/web/output.xml
           --json reportes/triaje/triaje.json
+
+      - name: Validar el triaje con los 10 casos etiquetados (cifras reales del modelo)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIAJE_MODELO: openai/gpt-4.1-mini
+        run: python .github/scripts/validar_triaje.py --salida reportes/triaje/validacion.md --json reportes/triaje/validacion.json
 
       - name: Guardar el triaje como artefacto
         if: ${{ !cancelled() }}
@@ -247,14 +254,18 @@ jobs:
         continue-on-error: true
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+          RAMA: ${{ github.head_ref || github.ref_name }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          NUMERO: ${{ github.run_number }}
+          URL_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: >-
           python .github/scripts/qase_subir.py
           --junit reportes/api/junit.xml reportes/contrato/junit.xml
           --robot reportes/web/output.xml
           --proyecto QOLQE
-          --titulo-run "Run #${{ github.run_number }} · ${{ github.ref_name }}"
-          --commit "${{ github.sha }}"
-          --url-run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          --titulo-run "Run #$NUMERO · $RAMA"
+          --commit "$COMMIT"
+          --url-run "$URL_RUN"
 
       - name: Empaquetar el sitio para GitHub Pages
         uses: actions/upload-pages-artifact@v5
@@ -272,7 +283,7 @@ jobs:
     name: Publicar en GitHub Pages
     needs: [quality-gate, reportes]
     # Solo en main y solo si el quality gate aprobó (nunca se publica un estado en rojo).
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.quality-gate.result == 'success' && needs.reportes.result == 'success' }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.quality-gate.result == 'success' && needs.reportes.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.suite == 'todas') }}
     runs-on: ubuntu-24.04
     permissions:
       pages: write      # para publicar en GitHub Pages

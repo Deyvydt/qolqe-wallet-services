@@ -81,6 +81,18 @@ jobs:
           cp uvicorn.log reportes/web/ 2>/dev/null || true
           python .github/scripts/resumen.py reportes/web/output.xml --titulo "Pruebas web E2E (Robot Framework)"
 
+      - name: Mostrar las pruebas omitidas por defecto conocido (@defecto)
+        if: ${{ !cancelled() }}
+        run: |
+          python - <<'PY'
+          import os, xml.etree.ElementTree as ET
+          raiz = ET.parse("reportes/web/output.xml").getroot()
+          filas = [f"| {t.get('name')} | {(t.find('status').text or '').strip()[:120]} |"
+                   for t in raiz.iter("test") if t.find("status").get("status") == "SKIP"]
+          texto = "### Omitidas por defecto conocido\n\n" + ("| Prueba | Motivo |\n|---|---|\n" + "\n".join(filas) if filas else "Ninguna.") + "\n"
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8").write(texto)
+          PY
+
       - name: Guardar los reportes como artefacto
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

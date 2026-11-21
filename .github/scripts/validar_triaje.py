@@ -31,6 +31,15 @@ def _ok(r, c, campo):
     return "✅" if r[campo] == c["esperado"][campo] else "❌"
 
 
+def ruta_segura(ruta, permitidas):
+    """Solo se escribe en carpetas conocidas del repo (evita que un argumento escriba fuera)."""
+    ruta = os.path.normpath(ruta).replace("\\", "/")
+    carpeta, nombre = os.path.split(ruta)
+    if carpeta not in permitidas or not nombre or nombre.startswith("."):
+        raise SystemExit(f"La salida debe estar en una de estas carpetas: {', '.join(permitidas)}")
+    return Path(carpeta) / os.path.basename(nombre)
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -68,13 +77,13 @@ def main():
     texto = "\n".join(out) + "\n"
 
     if args.salida:
-        salida = Path(args.salida)
+        salida = ruta_segura(args.salida, ("docs/ia", "reportes/triaje"))
         previo = salida.read_text(encoding="utf-8") if salida.is_file() else ""
         marca = previo.find("\n> Las tablas de arriba")  # el análisis escrito a mano se conserva
         salida.write_text(texto + (previo[marca:] if marca >= 0 else ""), encoding="utf-8")
     print(texto)
     if args.json:
-        Path(args.json).write_text(json.dumps({"base": base, "ia": ia, "aviso": aviso}, ensure_ascii=False, indent=2),
+        ruta_segura(args.json, ("docs/ia", "reportes/triaje")).write_text(json.dumps({"base": base, "ia": ia, "aviso": aviso}, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
     return 0
 

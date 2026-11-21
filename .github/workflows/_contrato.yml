@@ -27,7 +27,8 @@ jobs:
           cache-dependency-path: requirements*.txt
 
       - name: Instalar dependencias
-        run: pip install -r requirements-dev.txt
+        run: |
+          pip install --only-binary=:all: -r requirements-dev.txt
 
       - name: Validar que la especificación OpenAPI se genera
         run: |
