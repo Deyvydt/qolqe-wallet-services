@@ -1,0 +1,66 @@
+# QUÉ ES: workflow REUTILIZABLE con la VALIDACIÓN DE CONTRATO (primer job del pipeline).
+# POR QUÉ VA PRIMERO: si la API no cumple su propio contrato OpenAPI (respuestas 5xx, esquemas
+#   que no coinciden), no tiene sentido gastar tiempo en las pruebas funcionales ni en las web.
+#   Es lo más barato y lo que mejor detecta cambios que rompen a los consumidores (fail fast).
+# QUÉ HACE: Schemathesis lee /openapi.json y GENERA casos (válidos, inválidos, sin token, otros
+#   métodos) para TODAS las operaciones /api/servicios/* (E1..E9); se clasifican por endpoint.
+# QUALITY GATE: pasa si no hay ningún 5xx y cada validación recibe la respuesta correcta.
+name: Contrato (reutilizable)
+
+on:
+  workflow_call:
+
+jobs:
+  contrato:
+    name: Contrato · OpenAPI + Schemathesis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Instalar dependencias
+        run: |
+          pip install --only-binary=:all: -c requirements-lock.txt -r requirements-dev.txt
+
+      - name: Validar que la especificación OpenAPI se genera
+        run: |
+          python - <<'PY'
+          from qolqe.main import app
+          esquema = app.openapi()
+          rutas = [r for r in esquema["paths"] if r.startswith("/api/servicios")]
+          assert esquema.get("openapi"), "OpenAPI sin versión"
+          assert len(rutas) >= 4, f"faltan rutas del módulo G2: {rutas}"
+          print(f"OpenAPI {esquema['openapi']} · {len(esquema['paths'])} rutas · {len(rutas)} del módulo G2")
+          PY
+
+      - name: Ejecutar la prueba de contrato (Schemathesis)
+        run: >-
+          pytest tests/tecnico
+          --junitxml=reportes/contrato/junit.xml
+          --html=reportes/contrato/reporte-pytest.html --self-contained-html
+
+      - name: Copiar el reporte de Schemathesis
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p reportes/contrato
+          cp -r reportes/schemathesis/ultimo/. reportes/contrato/ || echo "Sin reporte de Schemathesis"
+
+      - name: Resumen en la página del run
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/resumen.py reportes/contrato/junit.xml --titulo "Contrato (Schemathesis)"
+
+      - name: Guardar los reportes como artefacto
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-contrato
+          path: reportes/contrato
+          retention-days: 30

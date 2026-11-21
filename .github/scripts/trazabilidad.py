@@ -55,9 +55,10 @@ TEXTO = {"passed": "Pasa", "xfailed": "Fallo esperado (defecto conocido)", "fail
 # ---------------------------------------------------------------------------------------
 # 1. Lectura de resultados
 # ---------------------------------------------------------------------------------------
-def _caso(nivel, nombre, etiquetas, estado, defecto="", mensaje="", cp=""):
+def _caso(nivel, nombre, etiquetas, estado, defecto="", mensaje="", cp="", duracion_ms=0):
     """Un caso de prueba ya normalizado (igual para API y web)."""
     return {
+        "duracion_ms": duracion_ms,
         "nivel": nivel,
         "nombre": nombre,
         "cp": cp,
@@ -106,7 +107,7 @@ def leer_junit(ruta):
             estado, mensaje = "passed", ""
         nivel = "contrato" if "schemathesis" in etiquetas else "api"
         casos.append(_caso(nivel, nombre_legible(tc.get("name", "")), etiquetas, estado,
-                           defecto, _primera_linea(mensaje)))
+                           defecto, _primera_linea(mensaje), duracion_ms=_ms(tc.get("time"))))
     return casos
 
 
@@ -128,8 +129,29 @@ def leer_robot(ruta):
         cp = next((e for e in etiquetas if e.upper().startswith("CP-")), "")
         mensaje = status.text if status is not None and estado != "passed" else ""
         casos.append(_caso("web", test.get("name", ""), etiquetas, estado, defecto,
-                           _primera_linea(mensaje), cp))
+                           _primera_linea(mensaje), cp, _duracion_robot(status)))
     return casos
+
+
+def _ms(segundos):
+    try:
+        return round(float(segundos) * 1000)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _duracion_robot(status):
+    """Robot 7 guarda 'elapsed' (segundos); Robot 6, 'starttime'/'endtime' ('20240101 12:00:00.000')."""
+    if status is None:
+        return 0
+    if status.get("elapsed"):
+        return _ms(status.get("elapsed"))
+    try:
+        formato = "%Y%m%d %H:%M:%S.%f"
+        inicio, fin = (datetime.strptime(status.get(k), formato) for k in ("starttime", "endtime"))
+        return round((fin - inicio).total_seconds() * 1000)
+    except (TypeError, ValueError):
+        return 0
 
 
 def leer_reporte(ruta):
@@ -238,6 +260,66 @@ def resumen_por_hu(filas):
     return dict(sorted(por_hu.items(), key=lambda x: (x[0] == SIN_HU, x[0])))
 
 
+# Endpoints del módulo G2 (Anexo A de docs/requisitos.md) + proceso diario. Cada escenario lleva su @E<n>.
+ENDPOINTS = {
+    "E1": "GET /api/servicios/empresas",
+    "E2": "GET /api/servicios/deudas",
+    "E3": "POST /api/servicios/pagos",
+    "E4": "GET /api/servicios/pagos",
+    "E5": "GET /api/servicios/pagos/{codigo}",
+    "E6": "GET /api/servicios/afiliaciones",
+    "E7": "POST /api/servicios/afiliaciones",
+    "E8": "PUT /api/servicios/afiliaciones/{id}",
+    "E9": "DELETE /api/servicios/afiliaciones/{id}",
+    "E10": "POST /api/pruebas/procesar-diario",
+    # Núcleo común (HU-N-01..09): etiqueta @N<n> (features/api/nucleo_comun.feature)
+    "N1": "POST /api/usuarios",
+    "N2": "POST /api/auth/login",
+    "N3": "POST /api/auth/logout",
+    "N4": "GET /api/cuentas/me",
+    "N5": "PUT /api/cuentas/me",
+    "N6": "GET /api/cuentas/me/saldo",
+    "N7": "POST /api/cuentas/me/cierre",
+    "N8": "POST /api/transferencias",
+    "N9": "GET /api/transferencias/comision",
+}
+TIPOS = ["funcional", "tecnico"]
+RESULTADOS = ["passed", "xfailed", "failed"]  # las omitidas se cuentan aparte en los totales generales
+
+
+def endpoint_caso(c):
+    encontrado = next((e for e in c["etiquetas"] if e in ENDPOINTS), None)
+    if encontrado:
+        return encontrado
+    return "Web E2E" if c["nivel"] == "web" else "Otros (humo, métodos no declarados)"
+
+
+def tipo_caso(c):
+    """Funcional o técnico según la etiqueta @funcional / @tecnico (las pruebas web son funcionales)."""
+    if "tecnico" in c["etiquetas"]:
+        return "tecnico"
+    return "funcional" if "funcional" in c["etiquetas"] or c["nivel"] == "web" else "sin tipo"
+
+
+def tabla_endpoints(casos):
+    """{endpoint: {tipo: {estado: n}}} en el orden E1..E10, después Web y el resto; más la fila TOTAL."""
+    tabla = defaultdict(lambda: {t: defaultdict(int) for t in [*TIPOS, "sin tipo"]})
+    for c in casos:
+        tabla[endpoint_caso(c)][tipo_caso(c)][c["estado"]] += 1
+    orden = [e for e in ENDPOINTS if e in tabla] + sorted(set(tabla) - set(ENDPOINTS))
+    filas = [(e, tabla[e]) for e in orden]
+    total = {t: defaultdict(int) for t in [*TIPOS, "sin tipo"]}
+    for _, fila in filas:
+        for t, estados in fila.items():
+            for estado, n in estados.items():
+                total[t][estado] += n
+    return filas, total
+
+
+def nombre_endpoint(e):
+    return f"{e} · {ENDPOINTS[e]}" if e in ENDPOINTS else e
+
+
 def estado_global(d):
     if d["estados"]["failed"]:
         return "❌", "Hay fallos nuevos"
@@ -307,6 +389,27 @@ def generar_md(casos_api, casos_web, ctx, base_defectos):
     cubiertas = sum(1 for hu, _ in HU_ESPECIFICACION if hu in por_hu)
     out += ["", f"**{cubiertas} de {len(HU_ESPECIFICACION)} HU** del módulo tienen casos en este run.", ""]
 
+    out += ["## Reporte total de escenarios · endpoint × tipo × resultado", "",
+            "Cada escenario está etiquetado con su endpoint (`@E1`..`@E10`) y su tipo (`@funcional` / `@tecnico`). "
+            "✅ pasa · ⚠️ fallo esperado (defecto conocido) · ❌ falla.", ""]
+    filas_e, total_e = tabla_endpoints(casos)
+    if filas_e:
+        out += ["| Endpoint | Funcional | F ✅ | F ⚠️ | F ❌ | Técnico | T ✅ | T ⚠️ | T ❌ | Total |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        for nombre, fila in [*filas_e, ("**TOTAL**", total_e)]:
+            celdas = []
+            for t in TIPOS:
+                celdas += [str(sum(fila[t].values()))] + [str(fila[t][r]) for r in RESULTADOS]
+            n = sum(sum(fila[t].values()) for t in fila)
+            etiqueta = nombre if nombre.startswith("**") else _md(nombre_endpoint(nombre))
+            out.append(f"| {etiqueta} | " + " | ".join(celdas) + f" | {n} |")
+        if sum(total_e["sin tipo"].values()):
+            out.append("")
+            out.append(f"_{sum(total_e['sin tipo'].values())} caso(s) sin etiqueta @funcional/@tecnico._")
+    else:
+        out.append("_Sin casos._")
+    out += [""]
+
     out += ["## Resumen por HU", ""]
     if por_hu:
         out += ["| HU | Casos | Cobertura por nivel | ✅ | ⚠️ | ❌ | ⏭️ | Defectos | Estado |",
@@ -321,10 +424,10 @@ def generar_md(casos_api, casos_web, ctx, base_defectos):
         out.append("_No hay resultados: no se ejecutó ninguna prueba._")
     out += ["", "## Matriz HU → caso → nivel → resultado", ""]
     if filas:
-        out += ["| HU | Caso de prueba | CA | Nivel | Resultado |", "|---|---|---|---|---|"]
+        out += ["| HU | Caso de prueba | CA | Endpoint | Tipo | Nivel | Resultado |", "|---|---|---|---|---|---|---|"]
         for f in filas:
-            out.append(f"| {f['hu_fila']} | {_md(nombre_caso(f))} | {', '.join(f['ca']) or '—'} | {f['nivel']} | "
-                       f"{resultado_md(f, base_defectos)} |")
+            out.append(f"| {f['hu_fila']} | {_md(nombre_caso(f))} | {', '.join(f['ca']) or '—'} | {endpoint_caso(f)} | "
+                       f"{tipo_caso(f)} | {f['nivel']} | {resultado_md(f, base_defectos)} |")
     else:
         out.append("_Sin casos._")
     out += ["", "Leyenda: ✅ pasa · ⚠️ fallo esperado: la prueba detecta un defecto ya reportado en "
@@ -439,6 +542,21 @@ def generar_html(casos_api, casos_web, ctx):
                   "<div class='tabla'><table><thead><tr><th>HU</th><th>Qué pide</th><th>Estado</th><th>Casos</th>"
                   "</tr></thead><tbody>" + "".join(filas_spec) + "</tbody></table></div>")
 
+    filas_e, total_e = tabla_endpoints(casos)
+    if filas_e:
+        filas_t = []
+        for nombre, fila in [*filas_e, ("TOTAL", total_e)]:
+            celdas = "".join(f"<td class='num'>{sum(fila[t].values())}</td>"
+                             + "".join(f"<td class='num'>{fila[t][r]}</td>" for r in RESULTADOS) for t in TIPOS)
+            n = sum(sum(fila[t].values()) for t in fila)
+            filas_t.append(f"<tr><td><b>{esc(nombre_endpoint(nombre))}</b></td>{celdas}<td class='num'><b>{n}</b></td></tr>")
+        partes.append("<h2>Reporte total de escenarios</h2><p class='ayuda'>Endpoint × tipo (funcional / técnico, "
+                      "según las etiquetas <code>@funcional</code> y <code>@tecnico</code>) × resultado. "
+                      "✅ pasa · ⚠️ fallo esperado (defecto conocido) · ❌ falla.</p>"
+                      "<div class='tabla'><table><thead><tr><th>Endpoint</th><th>Funcional</th><th>✅</th><th>⚠️</th>"
+                      "<th>❌</th><th>Técnico</th><th>✅</th><th>⚠️</th><th>❌</th><th>Total</th></tr></thead><tbody>"
+                      + "".join(filas_t) + "</tbody></table></div>")
+
     if por_hu:
         filas_hu = []
         for hu, d in por_hu.items():
@@ -465,12 +583,13 @@ def generar_html(casos_api, casos_web, ctx):
             cp = f"<b>{esc(f['cp'])}</b> · " if f["cp"] else ""
             filas_m.append(f"<tr class='{f['estado']}'><td><b>{esc(f['hu_fila'])}</b></td>"
                            f"<td>{cp}{esc(f['nombre'])}{detalle}</td><td>{esc(', '.join(f['ca']) or '—')}</td>"
+                           f"<td>{esc(endpoint_caso(f))}</td><td>{esc(tipo_caso(f))}</td>"
                            f"<td><span class='nivel'>{esc(f['nivel'])}</span></td>"
                            f"<td>{_chip(f['estado'], f['defecto'], base)}</td></tr>")
         partes.append("<h2>Matriz de trazabilidad</h2><p class='ayuda'>Historia de usuario → caso de prueba → "
                       "nivel donde se prueba → resultado de esta ejecución.</p>"
                       "<div class='tabla'><table><thead><tr><th>HU</th><th>Caso de prueba</th><th>CA</th>"
-                      "<th>Nivel</th><th>Resultado</th></tr></thead><tbody>" + "".join(filas_m) + "</tbody></table></div>")
+                      "<th>Endpoint</th><th>Tipo</th><th>Nivel</th><th>Resultado</th></tr></thead><tbody>" + "".join(filas_m) + "</tbody></table></div>")
     else:
         partes.append("<h2>Matriz de trazabilidad</h2><p class='ayuda'>No hay resultados: no se ejecutó ninguna prueba.</p>")
 
@@ -502,14 +621,16 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="Genera la matriz de trazabilidad HU → caso → nivel → resultado.")
-    p.add_argument("--api", help="JUnit XML de pytest (p. ej. reportes/api/junit.xml)")
+    p.add_argument("--api", nargs="*", default=[], help="uno o más JUnit XML de pytest (api y contrato), p. ej. reportes/api/junit.xml reportes/contrato/junit.xml")
     p.add_argument("--web", help="output.xml de Robot Framework (p. ej. reportes/web/output.xml)")
     p.add_argument("--salida-md", help="archivo Markdown a generar (p. ej. docs/trazabilidad.md)")
     p.add_argument("--salida-html", help="archivo HTML a generar (p. ej. sitio/trazabilidad.html)")
     p.add_argument("--summary", action="store_true", help="agrega la matriz al resumen del run de GitHub")
     args = p.parse_args()
 
-    _, casos_api = leer_reporte(args.api)
+    casos_api = []
+    for ruta in args.api:
+        casos_api += leer_reporte(ruta)[1] or []
     _, casos_web = leer_reporte(args.web)
     ctx = contexto_run()
 

@@ -1,0 +1,75 @@
+{
+  "descripcion": "Fallas etiquetadas a mano para validar el triaje. 5 son los defectos reales de docs/defectos.md (trazas como las da pytest/k6) y 5 son sintéticas con respuesta conocida.",
+  "casos": [
+    {
+      "id": "C01",
+      "prueba": "tests/api/test_g2_pago_servicios.py::longitud del código de suministro rg201 8 a 12 dígitos [13 digitos (invalido)-1000000010000-422-SUMINISTRO_INVALIDO]",
+      "origen": "pytest",
+      "mensaje": "AssertionError: Esperado 422, obtenido 404: {\"codigo\":\"SIN_DEUDA_PENDIENTE\",\"detail\":\"El suministro no tiene deudas pendientes\"}\nassert 404 == 422\n +  where 404 = <Response [404 Not Found]>.status_code\ntests/api/conftest.py:169: AssertionError",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": "DEF-01"}
+    },
+    {
+      "id": "C02",
+      "prueba": "tests/api/test_g2_pago_servicios.py::conteo de días de atraso alrededor del vencimiento [el mismo dia-0-0.00]",
+      "origen": "pytest",
+      "mensaje": "AssertionError: Esperado 0 días de atraso, obtenido 1 (mora 0.43)\nassert 1 == 0\ntests/api/conftest.py:209: AssertionError",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": "DEF-02"}
+    },
+    {
+      "id": "C03",
+      "prueba": "tests/api/test_g2_pago_servicios.py::estado de la deuda según los días de atraso límite de 60 días [60-PENDIENTE]",
+      "origen": "pytest",
+      "mensaje": "AssertionError: Esperado estado PENDIENTE, obtenido EN_COBRANZA (días de atraso 61)\nassert 'EN_COBRANZA' == 'PENDIENTE'\ntests/api/conftest.py:203: AssertionError",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": "DEF-03"}
+    },
+    {
+      "id": "C04",
+      "prueba": "tests/api/test_g2_pago_servicios.py::las deudas ya vencidas antes de activar el débito no se pagan automáticamente",
+      "origen": "pytest",
+      "mensaje": "AssertionError: assert 1 == 0\n +  where 1 = {'debitos_pagados': 1, 'deudas_vencidas': 0}['debitos_pagados']\ntests/api/conftest.py:241: AssertionError",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": "DEF-04"}
+    },
+    {
+      "id": "C05",
+      "prueba": "tests/performance/ejecutar.py estres::escalon 1200 VUs",
+      "origen": "k6",
+      "mensaje": "✗ http_req_duration p(95)<2000 → p(95)=60000ms\n✗ http_req_failed rate<0.01 → rate=0.87 (request timeout)\nThroughput cayó de 101 a 19 req/s. Al terminar: GET /api/salud sin respuesta tras 13 min; sqlite3.OperationalError: database is locked en BEGIN IMMEDIATE. Requiere reinicio del proceso.",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": "DEF-05"}
+    },
+    {
+      "id": "C06",
+      "prueba": "tests/api/test_g2_pago_servicios.py::consultar deudas de un suministro afiliado",
+      "origen": "pytest",
+      "mensaje": "httpx.ConnectError: [Errno 111] Connection refused\nFile \"/opt/hostedtoolcache/Python/3.12.7/x64/lib/python3.12/site-packages/httpx/_transports/default.py\", line 69, in map_httpcore_exceptions\nhttpcore.ConnectError: [Errno 111] Connection refused (al conectar con http://localhost:8000/api/salud)",
+      "esperado": {"categoria": "entorno", "defecto_conocido": null}
+    },
+    {
+      "id": "C07",
+      "prueba": "Pago Servicios.CP-WEB-01 Pagar una deuda de luz desde la web",
+      "origen": "robot",
+      "mensaje": "Setup failed:\nTimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:8000/\", waiting until \"load\"\nEl runner ubuntu-24.04 reporta: Error: The operation was canceled. uvicorn no terminó de arrancar.",
+      "esperado": {"categoria": "entorno", "defecto_conocido": null}
+    },
+    {
+      "id": "C08",
+      "prueba": "Afiliacion.CP-WEB-03 Afiliar un servicio de agua",
+      "origen": "robot",
+      "mensaje": "Error: locator.click: Error: strict mode violation: locator(\"button:has-text('Afiliar')\") resolved to 2 elements:\n  1) <button class=\"btn\">Afiliar</button>\n  2) <button class=\"btn-sec\">Afiliar otro</button>",
+      "esperado": {"categoria": "prueba_fragil", "defecto_conocido": null}
+    },
+    {
+      "id": "C09",
+      "prueba": "Pago Servicios.CP-WEB-02 Ver el comprobante después de pagar",
+      "origen": "robot",
+      "mensaje": "Keyword 'Get Text' failed after retrying for 5 seconds. The last error was: Text 'Pago exitoso' (str) should be 'Pago exitoso' (str) but element '#mensaje' was not visible yet (animation in progress). En la reejecución inmediata del mismo commit la prueba pasó.",
+      "esperado": {"categoria": "prueba_fragil", "defecto_conocido": null}
+    },
+    {
+      "id": "C10",
+      "prueba": "tests/api/test_g2_pago_servicios.py::pagar una deuda descuenta el total del saldo",
+      "origen": "pytest",
+      "mensaje": "AssertionError: Esperado saldo 414.50, obtenido 329.00 (se descontó el monto 85.50 dos veces: dos movimientos PAGO_SERVICIO con el mismo deuda_id=2)\nassert Decimal('329.00') == Decimal('414.50')\ntests/api/conftest.py:262: AssertionError",
+      "esperado": {"categoria": "defecto_real", "defecto_conocido": null}
+    }
+  ]
+}
