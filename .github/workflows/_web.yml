@@ -63,7 +63,9 @@ jobs:
             echo "::group::Ejecución $n de ${{ inputs.repeticiones }}"
             # La última ejecución queda como el reporte principal (reportes/web).
             if [ "$n" -eq "${{ inputs.repeticiones }}" ]; then salida=reportes/web; else salida=reportes/web/ejecucion-$n; fi
-            if robot --outputdir "$salida" --console verbose tests/e2e; then verdes=$((verdes+1)); fi
+            # .feature con robotframework-gherkin-parser; los escenarios @defecto (DEF-0X) que fallan quedan como SKIP.
+            if robot --name "Web E2E" --parser GherkinParser --language es --skiponfailure defecto \
+                --outputdir "$salida" --console verbose tests/e2e features/e2e; then verdes=$((verdes+1)); fi
             echo "::endgroup::"
           done
           echo "### Estabilidad web: $verdes de ${{ inputs.repeticiones }} ejecuciones seguidas en verde" >> "$GITHUB_STEP_SUMMARY"
