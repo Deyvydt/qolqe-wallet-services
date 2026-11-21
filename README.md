@@ -8,6 +8,7 @@ Proyecto 2 del curso **CS5383 Pruebas y Verificación de Software**. **Qolqe Wal
 |---|---|
 | **Reportes publicados (GitHub Pages)** | https://deyvydt.github.io/qolqe-wallet-services/ |
 | Informe final (las 3 partes) | [`docs/informe.md`](docs/informe.md) |
+| Quality gates (qué bloquea el merge) | [informe §6](docs/informe.md#6-quality-gates) |
 | Defectos DEF-01…06 | [`docs/defectos.md`](docs/defectos.md) |
 | Matriz de trazabilidad (último run publicado) | [`docs/trazabilidad.md`](docs/trazabilidad.md) |
 | Historial de ejecuciones en Qase | [`docs/trazabilidad-qase.md`](docs/trazabilidad-qase.md) |
@@ -19,10 +20,12 @@ Proyecto 2 del curso **CS5383 Pruebas y Verificación de Software**. **Qolqe Wal
 
 | Parte | Herramienta | Alcance | Resultado |
 |---|---|---|---|
-| 1 · API | pytest + pytest-bdd + httpx · Schemathesis | 124 escenarios sobre E1–E10 (72 funcionales / 52 técnicos) | 114 pasan · 10 fallos esperados (DEF-01…04) · 0 nuevos · 0 errores 500 |
+| 1 · API | pytest + pytest-bdd + httpx · Schemathesis | 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 sobre E1–E10 (72 funcionales / 52 técnicas), más pruebas de API del núcleo común | 114 pasan · 10 fallos esperados (DEF-01…04) · 0 nuevos · 0 errores 500 |
 | 2 · Web | Robot Framework + Browser + robotframework-gherkin-parser | 27 escenarios Gherkin + 3 `.robot` (núcleo y G2) | 28 pasan · 2 SKIP por DEF-02 (DEF-06 intermitente) |
-| 2 · CI/CD | GitHub Actions + Pages + Qase | `contrato → (api ‖ web ‖ rendimiento-humo) → quality-gate → reportes` | Ver [informe §5](docs/informe.md#5-pipeline-cicd-y-quality-gates) |
+| 2 · CI/CD | GitHub Actions + Pages + Qase | `contrato → (api ‖ web ‖ rendimiento) → quality-gate → reportes (siempre) → publicar (solo main)` | Ver [informe §5](docs/informe.md#5-pipeline-cicd-estructura-y-justificación-de-cada-job) y [§6 Quality Gates](docs/informe.md#6-quality-gates) |
 | 3 · Rendimiento | k6 | Carga, pico, estrés y resistencia | Cumple hasta ~1 000 VUs; colapso en 1 200 (DEF-05) |
+
+> **Entrega final:** la versión entregada queda marcada con el tag `final` (`git checkout final`).
 
 ## Estructura del repositorio
 
@@ -42,9 +45,10 @@ tests/
   performance/                Script k6 (qolqe.js), datos.py y ejecutar.py
     resultados/               Evidencia por escenario: carga, pico, estres, resistencia
   triaje/                     Casos etiquetados y pruebas unitarias del triaje de fallas
+  qase/                       Pruebas unitarias de qase_subir.py (servidor HTTP falso, sin red)
 .github/
-  workflows/                  pruebas.yml (orquestador), _api.yml, _web.yml
-  scripts/                    resumen.py, trazabilidad.py, portada.py, triaje_ia.py, validar_triaje.py
+  workflows/                  pruebas.yml (orquestador), _contrato.yml, _api.yml, _web.yml, _rendimiento.yml
+  scripts/                    resumen.py, trazabilidad.py, portada.py, qase_subir.py, triaje_ia.py, validar_triaje.py
 docs/                         Informe, requisitos, defectos, trazabilidad, ia/, rendimiento/
 ```
 
@@ -67,7 +71,7 @@ k6 se instala aparte (binario): https://grafana.com/docs/k6/latest/set-up/instal
 | Comando | Qué ejecuta |
 |---|---|
 | `pytest` | Todo: Gherkin de API + Schemathesis + humo + pruebas unitarias del triaje, y al final el **reporte total endpoint × tipo × resultado** |
-| `pytest tests/api tests/tecnico tests/test_humo.py` | Solo los 124 escenarios de API de G2 |
+| `pytest tests/api tests/tecnico tests/test_humo.py` | Solo las 124 pruebas de API de G2 (113 escenarios Gherkin + 11 pruebas técnicas: humo y Schemathesis) |
 | `pytest -m E3` | Un endpoint (`E1`…`E10`) |
 | `pytest -m "tecnico and E7"` | Un tipo dentro de un endpoint (`funcional` / `tecnico`) |
 | `pytest -m HU-G2-02` | Una historia (sirve cualquier etiqueta registrada en `pytest.ini`) |
