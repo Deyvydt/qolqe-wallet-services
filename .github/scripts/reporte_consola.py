@@ -7,7 +7,7 @@ PARA QUÉ: quien abre el run ve en segundos, sin descargar nada, el veredicto, l
 CÓMO SE USA (desde la raíz del repo, también en local):
   python .github/scripts/reporte_consola.py --api reportes/api/junit.xml \
       --contrato reportes/contrato/junit.xml --web reportes/web/output.xml \
-      --rendimiento reportes/rendimiento/analisis.json --evidencia con
+      --evidencia con   (rendimiento: datos-reporte/rendimiento.json)
   En el pipeline lee el resultado de cada job de la variable NEEDS. Sin NEEDS, los gates se deducen
   de los reportes. Respeta NO_COLOR. Solo informa: quien aprueba o bloquea es el job quality-gate.
 """
@@ -166,15 +166,14 @@ def main(argv=None):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="Reporte final consolidado en consola.")
-    for opcion in ("--api", "--contrato", "--web", "--rendimiento"):
+    for opcion in ("--api", "--contrato", "--web"):
         p.add_argument(opcion)
     p.add_argument("--evidencia", default="con", choices=("con", "sin"))
     args = p.parse_args(argv)
 
     suites = {clave: leer_reporte(getattr(args, clave))[1] for clave in ("contrato", "api", "web")}
-    rendimiento = None
-    if args.rendimiento and Path(args.rendimiento).is_file():
-        rendimiento = json.loads(Path(args.rendimiento).read_text(encoding="utf-8"))
+    archivo = Path("datos-reporte/rendimiento.json")  # ruta fija: no depende de argumentos
+    rendimiento = json.loads(archivo.read_text(encoding="utf-8")) if archivo.is_file() else None
     gates = resultados_gates(suites, rendimiento)
     aprobado = veredicto(gates)
     ctx = contexto_run()

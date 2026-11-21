@@ -347,5 +347,5 @@ jobs:
         run: >-
           python .github/scripts/reporte_consola.py
           --api datos-reporte/api.xml --contrato datos-reporte/contrato.xml
-          --web datos-reporte/web.xml --rendimiento datos-reporte/rendimiento.json
+          --web datos-reporte/web.xml
           --evidencia "$EVIDENCIA"
