@@ -1,36 +1,66 @@
 # Informe final del proyecto · Grupo G2 (individual)
 
 **Módulo:** G2 · Pago de servicios y afiliaciones · **Integrante:** David Marcelo · **Curso:** CS5383 Pruebas y Verificación de Software
-**Evidencia publicada:** https://deyvydt.github.io/qolqe-wallet-services/
+**Evidencia publicada:** https://deyvydt.github.io/qolqe-wallet-services/ · **Versión entregada:** tag `final` del repositorio
 
 ## Índice
 
-1. [Alcance](#1-alcance)
+1. [Alcance y criterio de selección de escenarios a automatizar](#1-alcance-y-criterio-de-selección-de-escenarios-a-automatizar)
 2. [Arquitectura y herramientas](#2-arquitectura-y-herramientas)
 3. [Patrón de diseño](#3-patrón-de-diseño)
 4. [Cobertura: reporte total de escenarios](#4-cobertura-reporte-total-de-escenarios)
-5. [Pipeline CI/CD y quality gates](#5-pipeline-cicd-y-quality-gates)
-6. [Trazabilidad con ejecuciones múltiples](#6-trazabilidad-con-ejecuciones-múltiples)
-7. [Capacidad de IA en el pipeline: triaje de fallas](#7-capacidad-de-ia-en-el-pipeline-triaje-de-fallas)
-8. [Defectos](#8-defectos)
-9. [Rendimiento](#9-rendimiento)
-10. [Conclusiones, limitaciones y trabajo futuro](#10-conclusiones-limitaciones-y-trabajo-futuro)
+5. [Pipeline CI/CD: estructura y justificación de cada job](#5-pipeline-cicd-estructura-y-justificación-de-cada-job)
+6. [Quality Gates](#6-quality-gates)
+7. [Trazabilidad con ejecuciones múltiples](#7-trazabilidad-con-ejecuciones-múltiples)
+8. [Capacidad de IA en el pipeline: triaje de fallas](#8-capacidad-de-ia-en-el-pipeline-triaje-de-fallas)
+9. [Defectos](#9-defectos)
+10. [Rendimiento](#10-rendimiento)
+11. [Conclusiones, limitaciones y trabajo futuro](#11-conclusiones-limitaciones-y-trabajo-futuro)
 
 ---
 
-## 1. Alcance
+## 1. Alcance y criterio de selección de escenarios a automatizar
 
 | Parte | Nivel de prueba | Qué cubre |
 |---|---|---|
-| 1 · API | Integración por la interfaz HTTP | Los 9 endpoints `/api/servicios/*` (E1–E9) y el proceso diario de débitos (E10), con escenarios funcionales y técnicos |
+| 1 · API | Integración por la interfaz HTTP | Los 9 endpoints `/api/servicios/*` (E1–E9) y el proceso diario de débitos (E10), con escenarios funcionales y técnicos; además, pruebas de API del **núcleo común** |
 | 2 · Web + CI/CD | Sistema (E2E en navegador) | Núcleo común (HU-N-01…09) y G2 (HU-G2-01…07) por pantalla. Pipeline en GitHub Actions |
 | 3 · Rendimiento | Sistema (carga) | Requerimiento «Quincena Qolqe»: carga, pico, estrés y resistencia con k6 |
 
-**Criterio de priorización: riesgo.** Primero lo que mueve dinero o expone datos (HU-G2-01, HU-G2-02, comprobantes de otro usuario), luego lo que el sistema hace solo (débito automático, HU-G2-05) y al final la comodidad (alias, filtros). Por web va solo lo que el usuario **ve y hace**; los cálculos por día, la concurrencia y el contrato se quedan en la API, que es más rápida y estable (pirámide de pruebas).
+### 1.1 Matriz de criterios
+
+Cada escenario candidato se puntúa con cuatro criterios (Alto = 3 · Medio = 2 · Bajo = 1). Se automatiza si la suma es **≥ 9**; el **nivel** (API o web) lo decide la pirámide de pruebas: por web va solo lo que el usuario **ve y hace**; cálculos por fecha, concurrencia, seguridad y contrato van por API, que es más rápida y estable.
+
+| Criterio | Pregunta | Alto (3) | Bajo (1) |
+|---|---|---|---|
+| Riesgo de negocio / dinero | ¿Qué se pierde si falla? | Mueve dinero, cobra mora, expone datos de otro usuario | Cosmético (alias, orden de una lista) |
+| Frecuencia de uso | ¿Cuántas veces lo usa el cliente? | Cada sesión (login, pagar, consultar deudas) | Ocasional (desafiliar, cerrar cuenta) |
+| Determinismo / costo de automatizar | ¿Se puede repetir con el mismo resultado y a bajo costo? | Datos semilla + reloj y saldo fijables por `/api/pruebas/*` | Depende de terceros reales, de la vista humana o de hardware |
+| Estabilidad del requisito | ¿Cambia poco? | Regla escrita con CA y valores (R-G2-0x, RN-xx) | Interfaz o texto que aún cambia |
+
+### 1.2 Qué se automatizó y qué no
+
+| Escenario | Riesgo | Frec. | Determ. | Estab. | Suma | Decisión y nivel | Por qué |
+|---|:-:|:-:|:-:|:-:|:-:|---|---|
+| Pagar una deuda (HU-G2-02) | 3 | 3 | 3 | 3 | 12 | ✅ API + web | Mueve dinero; flujo principal del usuario |
+| Mora y días de atraso según la fecha (R-G2-03, R-G2-04) | 3 | 3 | 3 | 3 | 12 | ✅ API (valores límite 0/1/19/20/21/60 días); web solo 2 ejemplos | Depende de la fecha: se fija con `PUT /api/pruebas/reloj` y se vuelve determinista. Por web sería lento repetir cada día límite |
+| Comprobantes de otro usuario (HU-G2-03) | 3 | 2 | 3 | 3 | 11 | ✅ API (`@seguridad`) | Exposición de datos; no se ve en pantalla |
+| Pago concurrente de la misma deuda | 3 | 1 | 2 | 3 | 9 | ✅ API (`@concurrencia`, E3) | La web no puede lanzar solicitudes simultáneas de forma confiable |
+| Débito automático y SMS de aviso (HU-G2-05) | 3 | 2 | 3 | 3 | 11 | ✅ API (E10 + `procesar-diario`) | Lo ejecuta el Sistema, no una pantalla; el SMS simulado se verifica en `/api/pruebas/notificaciones` |
+| Afiliar, alias, desafiliar (HU-G2-03…06) | 2 | 2 | 3 | 3 | 10 | ✅ API + web | CRUD con reglas (R-G2-05, `DEBITO_ACTIVO`) |
+| Contrato OpenAPI, autenticación, métodos no declarados | 2 | 3 | 3 | 3 | 11 | ✅ API (Schemathesis + `@tecnico`) | Generación barata desde el contrato |
+| **Núcleo común:** registro, login, bloqueo al 3.er intento, cierre de sesión, perfil, transferencias | 3 | 3 | 3 | 3 | 12 | ✅ web (`features/e2e/nucleo_comun.feature`, 13 escenarios) + pruebas de API del núcleo común (`@N<n>`) | Lo usan todos los módulos: si se rompe el login, se cae G1…G6 |
+| **Núcleo común:** cerrar cuenta (con saldo → rechazo; con S/ 0.00 → cierre) | 3 | 1 | 3 | 3 | 10 | ✅ web | Irreversible para el cliente; se prueba la regla que lo impide con saldo |
+| Recepción real del SMS en el teléfono | 2 | 2 | 1 | 2 | 7 | ❌ fuera de alcance | Los SMS son simulados en el SUT; se automatiza el **contenido** del mensaje, no la entrega del operador |
+| Aspecto visual, usabilidad, accesibilidad, otros navegadores | 1 | 3 | 1 | 1 | 6 | ❌ manual / exploratoria | Requiere juicio humano; la suite corre solo en Chromium headless |
+| Carga, pico, estrés y resistencia completas (13–33 min) | 3 | 1 | 2 | 3 | 9 | ✅ automatizadas, **ejecución manual** (`ejecutar.py`) | Demasiado largas para cada PR; en CI corre un humo de ~1 min (§6) |
+| Módulos G1, G3–G6 | — | — | — | — | — | ❌ otros grupos | Fuera del módulo asignado; la estructura los admite (§3.4) |
 
 ---
 
 ## 2. Arquitectura y herramientas
+
+### 2.1 Arquitectura planteada
 
 ```mermaid
 flowchart LR
@@ -59,7 +89,7 @@ flowchart LR
     K6["k6<br/>tests/performance/qolqe.js"] --> API
 
     subgraph CI["GitHub Actions"]
-        PIPE["contrato → api ‖ web ‖ rendimiento-humo<br/>→ quality-gate → reportes"]
+        PIPE["contrato → api ‖ web ‖ rendimiento<br/>→ quality-gate → reportes → publicar"]
     end
     BDD & ST & RF & K6 -.JUnit XML / output.xml / JSON.-> PIPE
     PIPE --> PAGES["GitHub Pages<br/>reportes + matriz de trazabilidad"]
@@ -67,7 +97,20 @@ flowchart LR
     PIPE --> TRI["Triaje de fallas<br/>(GitHub Models, solo sugiere)"]
 ```
 
-### 2.1 Justificación de cada herramienta frente a alternativas
+| Aspecto | **API** | **Web** |
+|---|---|---|
+| Especificación | `features/api/*.feature` (Gherkin en español) | `features/e2e/*.feature` (Gherkin en español) + 3 casos `tests/e2e/*.robot` |
+| Ejecutor | pytest + pytest-bdd | Robot Framework + `robotframework-gherkin-parser` |
+| Patrón | Steps genéricos → helpers → cliente (§3.2) | Page Object + App Actions (§3.1) |
+| Cliente / driver | `httpx` vía `TestClient`, **en proceso** (sin servidor) | Browser Library (Playwright, Chromium headless) contra uvicorn |
+| Datos y precondiciones | `/api/pruebas/reiniciar`, reloj y saldo fijados; BD propia de pruebas (`tests/conftest.py`) | Login y reinicio por API (App Actions); BD `datos/e2e.db` |
+| Defectos conocidos | `xfail strict` con el DEF (`tests/conftest.py`) | `@defecto @DEF-0X` → SKIP con el mensaje original |
+| Evidencia | JUnit XML + HTML + reporte total endpoint × tipo | `output.xml`, `report.html`, `log.html` (con o sin capturas) |
+| Job del pipeline | `contrato` (`_contrato.yml`) y `api` (`_api.yml`) | `web` (`_web.yml`), 3 ejecuciones seguidas |
+
+**Herramientas complementarias:** Schemathesis (contrato), k6 (rendimiento), Qase (gestión de casos e historial), GitHub Pages (evidencia), GitHub Models (triaje de fallas, solo sugiere).
+
+### 2.2 Justificación de cada herramienta frente a alternativas
 
 | Necesidad | Elegida | Alternativas evaluadas | Por qué la elegida |
 |---|---|---|---|
@@ -82,53 +125,99 @@ flowchart LR
 
 ## 3. Patrón de diseño
 
-### 3.1 E2E (web): comparación
+### 3.1 Criterios y pesos
 
-Escala: ✅ fuerte · ➖ medio · ❌ débil.
+Puntuación de 1 (débil) a 5 (fuerte). La **suma ponderada** = Σ (puntaje × peso); el máximo es 5,00.
 
-| Criterio | **Page Object** (elegido) | Screenplay | Keyword-driven puro | App Actions |
-|---|---|---|---|---|
-| Idea | Un archivo por pantalla con sus localizadores y acciones | Actores con habilidades que ejecutan tareas y hacen preguntas | Tablas de keywords sin capa de pantallas | Las precondiciones se preparan llamando a la app/API, no por la UI |
-| Mantenimiento | ✅ Si cambia una pantalla se corrige **un** `.resource` | ✅ Muy granular, pero muchas clases pequeñas | ❌ Los localizadores se repiten en cada caso | ✅ Menos pasos por UI que mantener |
-| Escalabilidad (módulos/equipos) | ✅ Un Page Object por pantalla; equipos distintos no se pisan | ✅ La mejor para muchos equipos y roles (actores) | ❌ Crece en duplicación | ➖ Complemento, no estructura todo el código |
-| Curva de aprendizaje | ✅ Baja: pantalla → acciones | ❌ Alta: actor/tarea/interacción/pregunta | ✅ Muy baja | ➖ Requiere conocer la API |
-| Encaje con Robot Framework | ✅ Natural (`.resource` por pantalla) | ➖ Se puede, pero va contra el estilo de keywords | ✅ Es el estilo por defecto | ✅ Con RequestsLibrary/Browser `Http` |
-| Riesgo | Page Objects «dios» si no se cuida el tamaño | Sobre-ingeniería para un módulo | Fragilidad y copia-pega | Puede saltarse lo que el usuario realmente hace |
+| Criterio | Peso | Por qué pesa eso |
+|---|---:|---|
+| Mantenimiento (un cambio de pantalla/endpoint se corrige en un solo lugar) | 25 % | Es el costo principal de una suite E2E a lo largo del curso |
+| Escalabilidad a G3…G6 | 20 % | El SUT tiene 6 módulos; la estructura debe admitirlos sin reescribir |
+| Curva de aprendizaje | 15 % | Un integrante y otros grupos que lean el código |
+| Reutilización del núcleo común | 15 % | Login, registro y transferencias los usan todos los módulos |
+| Testabilidad (casos negativos, precondiciones, aislamiento) | 10 % | Se necesitan entradas inválidas y datos controlados |
+| Compatibilidad con Robot Framework / Gherkin (pytest-bdd en API) | 15 % | Los `.feature` en español son el caso ejecutable |
+
+### 3.2 Web E2E: comparativa ponderada
+
+| Criterio (peso) | **Page Object** (elegido) | Screenplay | Keyword-driven puro | App Actions (solo) |
+|---|:-:|:-:|:-:|:-:|
+| Mantenimiento (25 %) | 4 | 5 | 2 | 4 |
+| Escalabilidad G3…G6 (20 %) | 4 | 5 | 2 | 3 |
+| Curva de aprendizaje (15 %) | 5 | 2 | 5 | 3 |
+| Reutilización núcleo común (15 %) | 4 | 5 | 2 | 3 |
+| Testabilidad (10 %) | 4 | 4 | 3 | 5 |
+| Compatibilidad Robot/Gherkin (15 %) | 5 | 2 | 5 | 4 |
+| **Suma simple (máx. 30)** | **26** | 23 | 19 | 22 |
+| **Suma ponderada (máx. 5,00)** | **4,30** | 4,00 | 3,00 | 3,60 |
+
+Ejemplo del cálculo (Page Object): 4×0,25 + 4×0,20 + 5×0,15 + 4×0,15 + 4×0,10 + 5×0,15 = 1,00 + 0,80 + 0,75 + 0,60 + 0,40 + 0,75 = **4,30**.
+
+| Patrón | Idea | Fortaleza | Por qué no se eligió / riesgo |
+|---|---|---|---|
+| **Page Object** | Un `.resource` por pantalla con sus localizadores (`data-testid`) y acciones | Si cambia una pantalla se corrige **un** archivo; encaja con el estilo de keywords de Robot | Page Objects «dios» si no se cuida el tamaño |
+| Screenplay | Actores con habilidades que ejecutan tareas y hacen preguntas | El más escalable con muchos equipos y roles | Curva alta y va contra el estilo de keywords de Robot; sobre-ingeniería para 1 módulo y ~6 pantallas |
+| Keyword-driven puro | Tablas de keywords sin capa de pantallas | Muy fácil de empezar | Localizadores repetidos en cada caso: frágil y con copia-pega |
+| App Actions (solo) | Preparar el estado llamando a la API, no por la UI | Precondiciones rápidas y estables | Por sí solo se salta lo que el usuario hace: se usa **como complemento** |
 
 **Implementación:** 3 capas + App Actions en las precondiciones.
 `escenario .feature` (qué) → `features/e2e/pasos/*.resource` (frase → acción de negocio) → `tests/e2e/pages/*Page.resource` (cómo: `data-testid` + acciones) → Browser → navegador.
 Las precondiciones (`Dado que Ana inició sesión`) usan **App Actions** (login por API y reinicio de datos por `/api/pruebas/reiniciar`), y lo que el escenario prueba se hace por pantalla.
 
-### 3.2 API: estilo en capas steps → helpers → cliente
+### 3.3 API: comparativa ponderada
+
+| Criterio (peso) | Service Object (una clase por recurso) | **Steps genéricos + helpers** (elegido) | Cliente generado desde OpenAPI |
+|---|:-:|:-:|:-:|
+| Mantenimiento (25 %) | 4 | 4 | 3 |
+| Escalabilidad G3…G6 (20 %) | 4 | 5 | 4 |
+| Curva de aprendizaje (15 %) | 4 | 5 | 3 |
+| Reutilización núcleo común (15 %) | 4 | 5 | 3 |
+| Testabilidad (10 %) | 4 | 4 | 2 |
+| Compatibilidad con Gherkin / pytest-bdd (15 %) | 3 | 5 | 2 |
+| **Suma simple (máx. 30)** | 23 | **28** | 17 |
+| **Suma ponderada (máx. 5,00)** | 3,85 | **4,65** | 2,95 |
+
+| Patrón | Por qué sí / por qué no |
+|---|---|
+| **Steps genéricos + helpers** | Frases como `envío "GET" a "/api/…"` y `la respuesta tiene estado 200` sirven a **cualquier** endpoint de cualquier grupo: G3…G6 solo escriben `.feature`. Los helpers (login, reloj, saldo, reinicio) son el núcleo común compartido |
+| Service Object | Con 10 endpoints y pasos genéricos, una clase por recurso solo duplicaría lo que ya dicen la ruta y el contrato; y obliga a una frase Gherkin por método de la clase |
+| Cliente generado desde OpenAPI | Tipado y siempre al día con el contrato, pero **valida antes de enviar**: no deja mandar un monto como texto inválido o un campo faltante, justo los casos `@tecnico`. Además las frases Gherkin quedan atadas a nombres generados |
 
 | Capa | Dónde | Responsabilidad |
 |---|---|---|
 | Escenario | `features/api/*.feature` | Qué se prueba, con etiquetas de endpoint, tipo, HU y técnica |
-| Steps | `tests/api/conftest.py` | Frases **genéricas** (`envío "GET" a "/api/…"`, `la respuesta tiene estado 200`) más frases de negocio (mora, saldo) |
+| Steps | `tests/api/conftest.py` | Frases **genéricas** más frases de negocio (mora, saldo, SMS) |
 | Helpers | `tests/api/conftest.py`, `tests/conftest.py` | Login, fijar reloj/saldo, reiniciar datos, clasificar resultados por endpoint |
 | Cliente | `httpx` / `TestClient` | Envía la solicitud a la app en proceso |
 
-Se descartó un *API Object* por endpoint: con 10 endpoints y pasos genéricos, una clase por recurso solo duplicaría lo que ya dicen la ruta y el contrato.
-
-### 3.3 Escalabilidad: qué pasa al agregar G3…G6
+### 3.4 Escalabilidad: qué pasa al agregar G3…G6
 
 | Pieza | Compartida (núcleo común) | Lo que agrega cada grupo |
 |---|---|---|
 | Web | `nucleo_comun.feature`, `pasos/nucleo.resource`, `LoginPage`, `RegistroPage`, `InicioPage`, `PerfilPage`, `TransferirPage`, `Comun.resource` (fixtures, `EVIDENCIA`) | `features/e2e/gX_*.feature`, `pasos/gX.resource` y su `XPage.resource` |
-| API | Pasos genéricos HTTP, login, reinicio de datos, reloj, reporte por endpoint | `features/api/gX_*.feature`, sus marcas `E…` en `pytest.ini` y los pasos de sus reglas |
+| API | Pasos genéricos HTTP, login, reinicio de datos, reloj, reporte por endpoint, pruebas de API del núcleo común | `features/api/gX_*.feature`, sus marcas `E…` en `pytest.ini` y los pasos de sus reglas |
 | Pipeline | Jobs, quality gate, Pages, Qase y triaje | Nada: los jobs recorren las carpetas; cada grupo se filtra por su tag (`--include G3`, `-m G3`) |
 
-Con 6 módulos (≈6 equipos) el núcleo común es el punto de contacto; por eso vive en archivos propios que ningún grupo edita para su módulo. **Conclusión:** Page Object + App Actions da el mejor equilibrio para este tamaño (1 módulo, ~6 pantallas, un integrante): mantenimiento localizado y curva baja. Screenplay sería la opción si el proyecto creciera a varios equipos con muchos roles de usuario; el costo de migrar es bajo porque las acciones de los Page Objects ya están separadas de los escenarios.
+### 3.5 Conclusión y cuándo cambiaríamos de patrón
+
+**Conclusión:** Page Object + App Actions (web, 4,30) y steps genéricos + helpers (API, 4,65) ganan por mantenimiento localizado, curva baja y encaje directo con Gherkin. Screenplay queda segundo (4,00): gana en escalabilidad pero pierde en curva y en compatibilidad con Robot.
+
+| Señal | Cambiaríamos a | Por qué |
+|---|---|---|
+| Se suman varios equipos (G3…G6) con roles distintos (cliente, operador, administrador) | Screenplay | Los actores y tareas evitan Page Objects gigantes compartidos; el costo de migrar es bajo porque las acciones ya están separadas de los escenarios |
+| Un Page Object supera ~30 keywords o mezcla varias pantallas | Componentes (Page Object por componente: menú, tabla, modal) | Vuelve a localizar el mantenimiento |
+| Cada grupo repite la misma secuencia de llamadas de API (p. ej. crear afiliación + activar débito) | Service Object para **esas** secuencias | Una sola definición de la secuencia de negocio |
+| El contrato se vuelve muy grande y cambia seguido | Cliente generado desde OpenAPI **solo** para los casos funcionales | Los `@tecnico` seguirían con `httpx` directo para poder mandar entradas inválidas |
 
 ---
 
 ## 4. Cobertura: reporte total de escenarios
 
-Esta sección responde a las observaciones *«no se distinguen los escenarios de todos los endpoints»* y *«reporte total de escenarios»*. Cada escenario lleva **una etiqueta de endpoint** (`@E1`…`@E10`) y **una de tipo** (`@funcional` o `@tecnico`); `pytest` imprime al final el **REPORTE TOTAL DE ESCENARIOS · endpoint × tipo × resultado** (lo genera `tests/conftest.py` con los resultados de esa misma ejecución).
+Esta sección responde a las observaciones *«no se distinguen los escenarios de todos los endpoints»*, *«reporte total de escenarios»* y *«cobertura completa de casos funcionales y técnicos en las APIs»*. Cada escenario lleva **una etiqueta de endpoint** (`@E1`…`@E10`) y **una de tipo** (`@funcional` o `@tecnico`); `pytest` imprime al final el **REPORTE TOTAL DE ESCENARIOS · endpoint × tipo × resultado** (lo genera `tests/conftest.py` con los resultados de esa misma ejecución).
 
-### 4.1 API: endpoint × tipo
+### 4.1 API G2: endpoint × tipo
 
-Ejecución local del 20/11/2026 (`pytest tests/api tests/tecnico tests/test_humo.py`). Técnico = escenarios `@tecnico` del Gherkin + 1 prueba Schemathesis por endpoint.
+Ejecución local del 20/11/2026 (`pytest tests/api tests/tecnico tests/test_humo.py`): **113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124**. Técnico = escenarios `@tecnico` del Gherkin + 1 prueba Schemathesis por endpoint.
 
 | Endpoint | Funcional | Técnico | Total | Pasan | Fallo esperado (DEF) |
 |---|---:|---:|---:|---:|---|
@@ -151,7 +240,17 @@ Además, Schemathesis generó **945 solicitudes** desde el contrato en esa ejecu
 
 **Por HU (Gherkin, sin Schemathesis):** HU-G2-01 32 · HU-G2-02 20 · HU-G2-03 19 · HU-G2-04 8 · HU-G2-05 15 · HU-G2-06 7 · HU-G2-07 12 · humo 1 → 114. **Las 7 HU de G2 tienen escenarios.**
 
-### 4.2 Web: escenarios por HU
+### 4.2 API del núcleo común
+
+Pruebas de API del núcleo común en `features/api/nucleo_comun.feature`, con etiquetas de endpoint `@N<n>` (mismo esquema que `@E<n>` de G2) y de tipo `@funcional` / `@tecnico`.
+
+<!-- completar cifras del núcleo común API -->
+
+| Endpoint del núcleo | Funcional | Técnico | Total | Pasan | Fallo esperado |
+|---|---:|---:|---:|---:|---|
+| *(completar desde el REPORTE TOTAL de pytest)* | | | | | |
+
+### 4.3 Web: escenarios por HU
 
 27 escenarios Gherkin (`features/e2e`) + 3 casos `.robot` (`tests/e2e`) = **30 pruebas web**.
 
@@ -163,11 +262,12 @@ Además, Schemathesis generó **945 solicitudes** desde el contrato en esa ejecu
 
 Resultado esperado de la suite: `30 tests, 28 passed, 0 failed, 2 skipped` (los 2 *skip* son DEF-02; si aparece el intermitente DEF-06 puede haber más *skip*, nunca *fail*).
 
-### 4.3 Cómo se leen las etiquetas
+### 4.4 Cómo se leen las etiquetas
 
 | Etiqueta | Significado | Filtro |
 |---|---|---|
-| `@E1`…`@E10` | Endpoint (lista en `pytest.ini`) | `pytest -m E3` |
+| `@E1`…`@E10` | Endpoint de G2 (lista en `pytest.ini`) | `pytest -m E3` |
+| `@N<n>` | Endpoint del núcleo común | `pytest -m N1` |
 | `@funcional` / `@tecnico` | Tipo: regla de negocio/CA vs. autenticación, validación de entrada, contrato, método HTTP | `pytest -m "tecnico and E7"` |
 | `@seguridad`, `@contrato` | Subtipos técnicos | `pytest -m seguridad` |
 | `@HU-G2-0x`, `@HU-N-0x`, `@CAn`, `@R-G2-0x`, `@RN-xx` | Trazabilidad a la especificación | `pytest -m HU-G2-02` · `robot --include HU-G2-02` |
@@ -177,80 +277,128 @@ Resultado esperado de la suite: `30 tests, 28 passed, 0 failed, 2 skipped` (los 
 
 ---
 
-## 5. Pipeline CI/CD y quality gates
+## 5. Pipeline CI/CD: estructura y justificación de cada job
 
 ### 5.1 Grafo
+
+Copiado de la cabecera de [`.github/workflows/pruebas.yml`](../.github/workflows/pruebas.yml):
+
+```
+  contrato ─┬─► api ──────────┐
+            ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main)
+            └─► rendimiento ──┘        triaje-ia ──┘
+```
 
 ```mermaid
 flowchart LR
     C["contrato<br/>Schemathesis"] --> A["api<br/>pytest-bdd"]
     C --> W["web<br/>Robot ×3"]
-    C --> R["rendimiento-humo<br/>k6 2 VUs"]
-    A & W & R --> G{"quality-gate"}
-    G -->|verde y en main| P["reportes<br/>GitHub Pages"]
-    A & W -.siempre.-> T["triaje-ia<br/>(no bloquea)"]
-    A & W -.siempre.-> Q["Qase<br/>(no bloquea)"]
+    C --> R["rendimiento<br/>k6 humo"]
+    C & A & W & R --> G{"quality-gate"}
+    C & A & W & R -.-> T["triaje-ia<br/>(no bloquea)"]
+    G & T --> REP["reportes<br/>SIEMPRE · matriz + Qase + sitio"]
+    G & REP --> P["publicar<br/>solo main y gate verde"]
 ```
 
-Eventos: push y pull request a `main`, y manual (`workflow_dispatch`) con el input **`evidencia: con | sin`**.
+**Eventos:** push a `main`, pull request hacia `main` y manual (`workflow_dispatch`) con 3 inputs: `suite` (`todas` | `api` | `web`), `repeticiones` (`1` | `3`, por defecto 3) y `evidencia` (`con` | `sin`). `concurrency` cancela el run anterior de la misma rama, salvo en `main` (no se corta un deploy de Pages a la mitad).
 
-| Job | Por qué existe | Por qué en ese lugar |
-|---|---|---|
-| `contrato` | Valida primero que la API cumple su contrato OpenAPI (Schemathesis: 0 errores 500, cada validación con su respuesta correcta) | *Fail fast*: si el contrato está roto, no tiene sentido gastar minutos en el resto |
-| `api` | Escenarios funcionales y técnicos de E1–E10, con el reporte total endpoint × tipo | En paralelo con web y rendimiento: son independientes |
-| `web` | Escenarios E2E en Chromium headless, **3 veces seguidas** (prueba de estabilidad) | En paralelo; es el job más lento |
-| `rendimiento-humo` | `k6` escenario `humo` (2 VUs, ~1 min) con los mismos umbrales del requerimiento: detecta una regresión grave de latencia sin correr la carga completa | Las pruebas de carga largas (13–33 min) se corren fuera del pipeline |
-| `quality-gate` | Junta los resultados y decide verde/rojo con los umbrales de la tabla 5.2 | Un solo punto de decisión, ligado a la protección de la rama `main` |
-| `reportes` | Publica en Pages los reportes de API, contrato, web y la matriz de trazabilidad | Solo en `main` y solo si el gate pasó |
-| `triaje-ia` | Hipótesis de causa para cada falla nueva (sección 7) | `always()` + `continue-on-error`: corre justo cuando hay fallas y nunca decide el resultado |
-| Subida a Qase | Registra cada ejecución como un run de Qase (sección 6) | Si falta el token o Qase no responde, avisa y sigue |
+### 5.2 Cada job y su justificación
 
-### 5.2 Quality gates
-
-| Gate | Umbral para pasar | Cómo se mide |
-|---|---|---|
-| Contrato | 0 respuestas 500 y 0 validaciones mal respondidas | `tests/tecnico/test_contrato_schemathesis.py` |
-| API funcional/técnica | 0 fallos nuevos. Los fallos ligados a un DEF reportado son `xfail strict`: si un defecto se corrige y la prueba pasa (XPASS), el gate se pone **rojo** para actualizar la lista | `tests/conftest.py` + JUnit XML |
-| Web | 0 *fail* en las **3** ejecuciones seguidas. Los escenarios `@defecto` que fallan quedan como SKIP (visibles en `report.html`) | `--skiponfailure defecto` + contador de ejecuciones verdes |
-| Rendimiento (humo) | p95 consultas < 800 ms · p95 operaciones de dinero < 1 500 ms · errores técnicos < 1 % | `thresholds` de `tests/performance/qolqe.js` (código de salida de k6) |
-| Triaje IA / Qase | No bloquean | `continue-on-error` |
+| # | Job | Archivo | Depende de | Condición (`if`) | Por qué existe | Por qué en ese lugar |
+|---|---|---|---|---|---|---|
+| 1 | `contrato` | `_contrato.yml` | — | siempre | Comprueba que el OpenAPI se genera con las rutas de G2 y corre Schemathesis (`pytest tests/tecnico`) | **Primero (fail fast):** es lo más barato y si la API incumple su contrato no tiene sentido gastar minutos en lo demás |
+| 2 | `api` | `_api.yml` | `contrato` | contrato en verde y `suite ≠ web` | Escenarios Gherkin funcionales y técnicos E1–E10 con el reporte total endpoint × tipo; además, pruebas unitarias de las herramientas del pipeline (`tests/triaje`, `tests/qase`) | En **paralelo** con web y rendimiento: son independientes |
+| 3 | `web` | `_web.yml` | `contrato` | contrato en verde y `suite ≠ api` | Escenarios E2E en Chromium headless, **N veces seguidas** (3 por defecto) para demostrar que la suite no es frágil | En paralelo; es el job más lento |
+| 4 | `rendimiento` | `_rendimiento.yml` | `contrato` | contrato en verde y `suite` = `todas` (o push/PR) | k6 `humo` (~1 min) con los mismos umbrales del requerimiento: detecta una regresión grave de latencia o de integridad del dinero | En paralelo; la batería larga (13–33 min) se corre fuera del pipeline |
+| 5 | `quality-gate` | `pruebas.yml` | `contrato, api, web, rendimiento` | `!cancelled()` | **Único punto de decisión** verde/rojo con criterios explícitos (§6) | Después de todas las pruebas; es el check que protege `main` |
+| 6 | `triaje-ia` | `pruebas.yml` | `contrato, api, web, rendimiento` | `!cancelled()` + `continue-on-error: true` | Hipótesis de causa para cada falla nueva y validación del triaje contra 10 casos etiquetados (§8) | En paralelo con el gate; **nunca decide** el resultado |
+| 7 | `reportes` | `pruebas.yml` | `quality-gate, triaje-ia` | `!cancelled()` → **corre SIEMPRE**, también si hubo fallas | Junta los artefactos, arma la matriz de trazabilidad y la portada, sube la ejecución a Qase y guarda el sitio como artefacto `sitio-reportes` (también en PR y ramas) | **Último job de pruebas:** la evidencia queda visible al final de cada ejecución, pase o falle |
+| 8 | `publicar` | `pruebas.yml` | `quality-gate, reportes` | `main` **y** gate en verde **y** reportes en verde (en manual, solo con `suite = todas`) | Publica el sitio en GitHub Pages | Al final y solo con el gate en verde: nunca se publica un estado en rojo |
 
 ### 5.3 Reportería con / sin evidencia
 
 | `evidencia` | Qué se genera | Para qué |
 |---|---|---|
-| `con` (por defecto) | Captura de página completa al final de cada prueba web + traza Playwright si falla + reportes HTML | Auditoría y demostración |
+| `con` (por defecto, también en push y PR) | Captura de página completa al final de cada prueba web + traza Playwright si falla + reportes HTML | Auditoría y demostración |
 | `sin` | Sin capturas (ni siquiera la automática al fallar); la traza de Playwright se guarda igual si una prueba falla | Corridas rápidas; el diagnóstico de fallas no se pierde |
 
-Se aplica con `-v EVIDENCIA:con|sin` en Robot (`tests/e2e/resources/Comun.resource`); un valor distinto de `con`/`sin` hace fallar el teardown para no equivocarse en silencio.
+Se aplica con `-v EVIDENCIA:con|sin` en Robot (`tests/e2e/resources/Comun.resource`); un valor distinto de `con`/`sin` hace fallar el teardown para no equivocarse en silencio. En ambos casos el job `reportes` genera el sitio y la matriz.
 
 ---
 
-## 6. Trazabilidad con ejecuciones múltiples
+## 6. Quality Gates
+
+Un *quality gate* es una condición medible que un cambio debe cumplir para fusionarse. Cada job de pruebas tiene **su** gate (sale en rojo si no lo cumple) y el job **`quality-gate`** los junta en una tabla en el resumen del run y en un único resultado. Ese job es el check requerido para fusionar en `main`.
+
+### 6.1 Tabla de gates
+
+| Gate | Qué protege | Cómo se mide | Umbral | Dónde se ve (job / resumen) | ¿Bloquea el merge? | Ejemplo de falla |
+|---|---|---|---|---|---|---|
+| **1 · Contrato** | A los consumidores de la API: que responda según su OpenAPI | `_contrato.yml`: paso que exige que `app.openapi()` tenga versión y ≥ 4 rutas `/api/servicios`; luego `pytest tests/tecnico` (Schemathesis genera casos válidos, inválidos, sin token y con otros métodos para E1–E9) | **0 respuestas 5xx** y cada validación con la respuesta correcta | Job *Contrato · OpenAPI + Schemathesis* · resumen «Contrato (Schemathesis)» · artefacto `reportes-contrato` | **Sí.** Además, si falla, `api`, `web` y `rendimiento` no corren (quedan *skipped*) y el gate agregado se pone en rojo igual, para no dar un falso verde | Un entero enorme en `monto` devuelve 500 en vez de 422 |
+| **2 · API** | Las reglas de negocio y validaciones de E1–E10 | `_api.yml`: `pytest` (pytest-bdd) con JUnit XML; `tests/conftest.py` marca los fallos ligados a un DEF como `xfail(strict=True)`. En el mismo job, `pytest tests/triaje tests/qase` | **0 fallos nuevos.** Defectos conocidos DEF-01…04 como `xfail strict`: si uno se corrige y la prueba pasa (**XPASS**), el job falla para actualizar la lista | Job *API · pytest-bdd* · resumen «Pruebas de API (pytest-bdd)» · REPORTE TOTAL endpoint × tipo en el log · artefacto `reportes-api` | **Sí** | Un cambio acepta suministros de 7 dígitos → escenario de partición `failed` (nuevo) → rojo. O se corrige DEF-02 sin quitarlo de la lista → XPASS → rojo |
+| **3 · Web** | Lo que el usuario ve y hace, y que la suite sea **estable** | `_web.yml`: Robot corre la suite `repeticiones` veces seguidas (3 por defecto) y cuenta las ejecuciones en verde; `--skiponfailure defecto` | **Todas las ejecuciones seguidas en verde** (3 de 3). SKIP **solo** para escenarios etiquetados `@defecto` (DEF-02, DEF-06), con el mensaje original | Job *Web · Robot Framework + Browser* · resumen «Estabilidad web: N de 3 ejecuciones seguidas en verde» y tabla «Omitidas por defecto conocido» · artefacto `reportes-web` | **Sí** | Un escenario sin `@defecto` falla en la 2.ª de 3 ejecuciones (prueba frágil o regresión) → 2 de 3 → rojo |
+| **4 · Rendimiento (humo)** | Que un cambio no degrade la latencia ni descuadre el dinero | `_rendimiento.yml`: `ejecutar.py humo` (k6, 2 VUs, ~1 min) y lectura de `resultados/humo/analisis.json` (`umbrales_k6_cumplidos` e `integridad_dinero.ok`) | **p95 consultas < 800 ms · p95 operaciones de dinero < 1 500 ms · errores técnicos < 1 %** e **integridad del dinero**: ningún descuadre, ningún código repetido, ninguna deuda pagada 2 veces | Job *Rendimiento · k6 humo* · resumen «Rendimiento · humo k6» (Umbrales k6 ✅/❌, Integridad del dinero ✅/❌) · artefacto `reportes-rendimiento` | **Sí** (cuando corre: push, PR o manual con `suite = todas`) | Una consulta sin índice lleva el p95 de deudas a 900 ms → umbral ❌ → rojo |
+| **5 · Quality gate agregado** | `main`: que nada en rojo se fusione | Job `quality-gate`: lee `needs` de `contrato, api, web, rendimiento` | Ningún gate en `failure` o `cancelled`, y `contrato` en `success`. Un gate `skipped` por elección de `suite` se muestra como «no aplica» | Job *Quality gate* · tabla **«Quality gate» (Criterio · Umbral · Resultado)** y la línea «Resultado: ✅/❌» en el resumen del run | **Sí: es el check requerido de `main`** | Cualquiera de los ejemplos anteriores |
+| Triaje IA | — (orienta el análisis) | Job `triaje-ia` | — | Artefacto `triaje-ia` (`triaje.json`, `validacion.md`) | **No** (`continue-on-error: true`) | Si GitHub Models no responde, el job falla y el run sigue igual |
+| Qase | — (historial entre ejecuciones) | Paso «Subir esta ejecución a Qase» en `reportes` | — | Proyecto Qase `QOLQE` | **No** (`continue-on-error: true`; sin token imprime «Qase no disponible» y termina bien) | Token vencido: el run se completa sin subir a Qase |
+
+### 6.2 Cómo se lee en un run
+
+1. Abrir el run en *Actions* → el resumen muestra primero la tabla **Quality gate** con un renglón por gate (✅ aprobado · ⏭️ no aplica · ❌ FALLÓ · ⚠️ cancelado).
+2. Si hay ❌, bajar a la sección del job correspondiente del mismo resumen (contrato, API, estabilidad web, omitidas por defecto, rendimiento).
+3. Las causas sugeridas por la IA están en el artefacto `triaje-ia`; la evidencia completa, en el artefacto `sitio-reportes` (en `main`, también en GitHub Pages).
+
+---
+
+## 7. Trazabilidad con ejecuciones múltiples
 
 | Fuente | Qué muestra | Dónde |
 |---|---|---|
 | Matriz de un run | HU → caso → nivel (api/contrato/web) → resultado → DEF | `trazabilidad.html` en Pages, resumen del run y [`docs/trazabilidad.md`](trazabilidad.md) (generada por `.github/scripts/trazabilidad.py`) |
-| Historial de muchos runs | Cada ejecución del pipeline es un *test run* de Qase; la ficha de cada caso muestra en qué runs pasó, falló o se omitió | Proyecto Qase `QOLQE`, detalle en [`docs/trazabilidad-qase.md`](trazabilidad-qase.md) |
+| Historial de muchos runs | Cada ejecución del pipeline es un *test run* de Qase; la ficha de cada caso muestra en qué runs pasó, falló o se omitió | Proyecto Qase `QOLQE`: https://app.qase.io/project/QOLQE · detalle en [`docs/trazabilidad-qase.md`](trazabilidad-qase.md) |
 
-Las etiquetas del Gherkin (`@HU`, `@CA`, `@E`) viajan en el JUnit XML y en el `output.xml` de Robot; el título del caso en Qase es estable (`[nivel] nombre`), por eso cada run suma historial al **mismo** caso. Los fallos esperados se suben como `skipped` con el comentario «Fallo esperado: defecto conocido DEF-0X».
+### 7.1 Cómo se ve el historial con múltiples ejecuciones
+
+| En GitHub Actions | En Qase | Cómo se relacionan |
+|---|---|---|
+| Cada run del workflow *Pruebas G2* (push, PR o manual) | Un **test run** nuevo titulado `Run #<número> · <rama>`, con el commit y el enlace al run de GitHub | `qase_subir.py` en el job `reportes` |
+| Cada prueba (escenario Gherkin, prueba Schemathesis, caso Robot) | Un **caso** del repositorio de Qase, en su suite (*API - Funcional*, *API - Técnico*, *Web E2E - Núcleo común*, *Web E2E - G2 Servicios*) | El título es estable (`[nivel] nombre`): se busca por título y se reutiliza, así cada run suma historial al **mismo** caso |
+| Resultado: pasa / falla / omitida / xfail | `passed` / `failed` (con el mensaje) / `skipped` / `skipped` con «Fallo esperado: defecto conocido DEF-0X» | Mapeo en `qase_subir.py`, probado en `tests/qase/test_qase_subir.py` |
+| Varios runs seguidos | Lista *Test Runs* con el % de casos que pasan; ficha del caso → historial en todos los runs | Permite ver en qué commit apareció una regresión o que DEF-02 sigue omitido run tras run |
+| Primer run subido | https://app.qase.io/run/QOLQE/dashboard/1 : **153 casos pasados** | Línea base del historial |
+
+Las etiquetas del Gherkin (`@HU`, `@CA`, `@E`) viajan en el JUnit XML y en el `output.xml` de Robot y llenan los campos propios *Endpoint* e *Historia de usuario* de Qase.
+
+### 7.2 Investigación: herramienta de gestión de casos
+
+Resumen de [`docs/trazabilidad-qase.md`](trazabilidad-qase.md):
+
+| Herramienta | Costo para el curso | Integración con CI | Requiere | Veredicto |
+|---|---|---|---|---|
+| **Qase** (elegida) | Gratis (hasta 3 usuarios) | Reporteros para pytest y Robot; API REST v1 simple | Nada (SaaS) | Sube cada run desde el pipeline con un script sin dependencias nuevas |
+| TestRail | De pago (prueba de 14 días) | API o CLI `trcli` | Licencia | Descartada por costo |
+| Xray | De pago | Importa JUnit / Robot vía Jira | Jira | Descartada: depende de Jira |
+| Zephyr Scale | De pago | Importa JUnit vía Jira | Jira | Descartada: depende de Jira |
+| Kiwi TCMS | Gratis (código abierto) | Plugins para pytest y Robot | Servidor propio | Descartada: instalar y mantener un servidor |
 
 ---
 
-## 7. Capacidad de IA en el pipeline: triaje de fallas
+## 8. Capacidad de IA en el pipeline: triaje de fallas
 
 | Aspecto | Descripción |
 |---|---|
 | Qué hace | Para cada falla **nueva** del run propone categoría (`defecto_real`, `prueba_fragil`, `entorno`), el DEF ya reportado al que corresponde (si alguno), causa probable y siguiente paso |
 | Cómo | Agente con un modelo de GitHub Models (`openai/gpt-4.1-mini`, temperatura 0) que puede consultar `docs/defectos.md`, el diff del último commit y el código del repo antes de responder (`.github/scripts/triaje_ia.py`) |
-| Validación | 10 fallas etiquetadas a mano (`tests/triaje/casos_etiquetados.json`): DEF-01…05 y 5 sintéticas. Se mide exactitud de categoría y de DEF frente a una **línea base por reglas**. Pruebas unitarias sin red en `tests/triaje/test_triaje.py` |
-| Resultados | Línea base por reglas: **9/10** en categoría y **10/10** en DEF. **Modelo: pendiente** — las cifras del modelo se publican tras la primera ejecución en el pipeline (job `triaje-ia`). Detalle: [`docs/ia/validacion_triaje.md`](ia/validacion_triaje.md) |
+| Validación | 10 fallas etiquetadas a mano (`tests/triaje/casos_etiquetados.json`): DEF-01…05 y 5 sintéticas. Se mide exactitud de categoría y de DEF frente a una **línea base por reglas**. Pruebas unitarias sin red en `tests/triaje/test_triaje.py` (corren en el job `api`) |
+| Resultados | Línea base por reglas: **9/10** en categoría y **10/10** en DEF. **Modelo:** el job `triaje-ia` ejecuta `validar_triaje.py` con el modelo real en cada run; las cifras quedan en el artefacto `triaje-ia` (`validacion.md`) tras el próximo run. Detalle: [`docs/ia/validacion_triaje.md`](ia/validacion_triaje.md) |
 | Controles | Salida JSON validada; el DEF solo se acepta si existe en `defectos.md`; **humano en el bucle** (solo sugiere: no marca xfail ni abre/cierra defectos); nunca bloquea el pipeline; se filtran tokens/contraseñas de las trazas |
 | Límites | 10 casos son pocos (resultado orientativo); la línea base es optimista porque sus reglas salen de las mismas huellas de `defectos.md`; un timeout de carga (DEF-05) es difícil de separar de «entorno» |
 
+<!-- cifras del modelo: pegar de validacion.md -->
+
 ---
 
-## 8. Defectos
+## 9. Defectos
 
 | ID | Título | Regla / requisito | Severidad | Prioridad | Detectado por |
 |---|---|---|---|---|---|
@@ -265,7 +413,7 @@ Observaciones del contrato (no son defectos funcionales): OBS-01 rango de entero
 
 ---
 
-## 9. Rendimiento
+## 10. Rendimiento
 
 Herramienta k6 v2.1.0; entorno local (i5-11400H, 32 GB, Windows 11), Qolqe en 1 proceso de uvicorn con SQLite. Modelo de carga: 3 000 sesiones/h × 2 min = **100 VUs** en hora punta (ley de Little); campaña = **300 VUs**. Cifras de `tests/performance/resultados/<escenario>/analisis.json` (etapa estable).
 
@@ -280,13 +428,13 @@ Herramienta k6 v2.1.0; entorno local (i5-11400H, 32 GB, Windows 11), Qolqe en 1 
 
 ---
 
-## 10. Conclusiones, limitaciones y trabajo futuro
+## 11. Conclusiones, limitaciones y trabajo futuro
 
 ### Conclusiones
 
-1. **Cobertura completa del módulo por endpoint:** 124 escenarios de API sobre los 10 endpoints (72 funcionales / 52 técnicos), las 7 HU de G2 con casos, y 30 pruebas web que cubren núcleo y G2.
+1. **Cobertura completa del módulo por endpoint:** 113 escenarios Gherkin + 11 pruebas técnicas (humo y Schemathesis) = 124 pruebas de API sobre los 10 endpoints (72 funcionales / 52 técnicas), las 7 HU de G2 con casos, pruebas de API del núcleo común y 30 pruebas web que cubren núcleo y G2.
 2. **Las pruebas encontraron defectos reales:** 6 defectos, 4 de severidad Alta (cobro de mora indebido, pago bloqueado a los 60 días, colapso bajo carga y respuesta antes del commit).
-3. **El pipeline es un quality gate efectivo:** un fallo nuevo, un defecto corregido sin actualizar la lista (XPASS), una prueba web inestable o una regresión de latencia lo ponen en rojo y bloquean el PR.
+3. **El pipeline es un quality gate efectivo:** un fallo nuevo, un defecto corregido sin actualizar la lista (XPASS), una prueba web inestable o una regresión de latencia lo ponen en rojo y bloquean el PR (§6).
 4. **La técnica importa más que la cantidad:** 9 de los 10 fallos esperados salieron de **valores límite** (0/1/19/20/21/60 días, 12/13 dígitos).
 
 ### Limitaciones (honestas)
@@ -295,14 +443,13 @@ Herramienta k6 v2.1.0; entorno local (i5-11400H, 32 GB, Windows 11), Qolqe en 1 
 |---|---|
 | Rendimiento medido en una sola máquina local, con SQLite | Las cifras son una línea base relativa, no capacidad de producción |
 | DEF-06 es intermitente y afecta a la web | Se mitiga con login por API y verificación recargando; los escenarios que lo exponen quedan en SKIP, no en verde real |
-| Validación del triaje con 10 casos y sin cifras del modelo todavía | El valor de la IA aún no está demostrado con números; la línea base es optimista |
+| Validación del triaje con 10 casos; las cifras del modelo dependen del próximo run del pipeline | El valor de la IA se demuestra con pocos números; la línea base es optimista |
 | Schemathesis no genera algunos casos (p. ej. «falta un campo», «entero enorme») en modo determinista | Esas validaciones se cubren a mano en el Gherkin, no por generación |
-| `tests/triaje/test_triaje.py::test_defectos_conocidos_salen_de_defectos_md` espera DEF-01…05 y hoy `defectos.md` ya incluye DEF-06 | La prueba unitaria falla hasta actualizar su lista esperada |
-| Trabajo individual | Se priorizó por riesgo; G2 completo, núcleo solo por web |
+| Trabajo individual | Se priorizó por riesgo (§1.1); G2 completo y el núcleo común por web y API |
 
 ### Trabajo futuro
 
-- Correr la validación del triaje en el pipeline y publicar las cifras del modelo; ampliar a ≥ 30 casos etiquetados con redacciones distintas.
+- Ampliar la validación del triaje a ≥ 30 casos etiquetados con redacciones distintas.
 - Repetir la prueba de estrés con PostgreSQL, varios workers y un límite de concurrencia (503 rápido) para confirmar la causa de DEF-05.
-- Extender la estructura a G3…G6 sobre el núcleo común compartido (sección 3.3) y evaluar Screenplay si se suman varios equipos.
+- Extender la estructura a G3…G6 sobre el núcleo común compartido (§3.4) y evaluar Screenplay si se suman varios equipos (§3.5).
 - Pruebas de rendimiento en un entorno separado del generador de carga y como job programado (nocturno), no en cada PR.
