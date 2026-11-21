@@ -5,7 +5,7 @@ PARA QUÉ:
      ni modifican los datos de la app que usas en la demo (datos/qolqe.db). También activa
      el modo prueba, que habilita la API de soporte (/api/pruebas/*).
   2. Al terminar cada ejecución imprime en la terminal el RESUMEN AUTOMÁTICO:
-     - Reporte total: endpoint (E1..E10) × tipo (funcional / técnico, por las etiquetas
+     - Reporte total: endpoint (E1..E10 de G2, N1..N9 del núcleo común) × tipo (funcional / técnico, por las etiquetas
        @funcional y @tecnico de cada escenario) × resultado, con totales.
      - Por HU (funcional / técnico) y por técnica, y cada fallo con su defecto.
      - Técnico (Schemathesis): casos generados por endpoint y validación de entrada.
@@ -36,6 +36,15 @@ DEFECTOS_CONOCIDOS = [
     ("[60-PENDIENTE]", "DEF-03"),
     ("[60 dias, aun se puede pagar-", "DEF-03"),
     ("ya_vencidas_antes_de_activar", "DEF-04"),
+    # Núcleo común (features/api/nucleo_comun.feature)
+    ("después_de_cerrar_sesión_el_token_ya_no_es_válido", "DEF-07"),
+    ("[secuencia descendente-", "DEF-08"),
+    ("un_login_exitoso_reinicia_el_conteo", "DEF-09"),
+    ("no_se_puede_transferir_a_una_cuenta_cerrada", "DEF-10"),
+    ("[redondeo comercial 0.005-", "DEF-11"),
+    ("el_saldo_debe_cubrir_el_monto_más_la_comisión", "DEF-12"),
+    ("las_transferencias_interbancarias_cuentan_para_el_límite", "DEF-13"),
+    ("transferencias_simultáneas_no_superan_el_límite", "DEF-14"),
 ]
 TECNICAS = ["camino-feliz", "particion", "valor-limite", "efecto", "concurrencia", "seguridad", "contrato", "schemathesis"]
 # Endpoints del módulo G2 (docs/requisitos.md, Anexo A) + el proceso diario. Etiqueta @E<n> en cada escenario.
@@ -50,6 +59,16 @@ ENDPOINTS = {
     "E8": "PUT /api/servicios/afiliaciones/{id}",
     "E9": "DELETE /api/servicios/afiliaciones/{id}",
     "E10": "POST /api/pruebas/procesar-diario",
+    # Núcleo común (HU-N-01..09): etiqueta @N<n>
+    "N1": "POST /api/usuarios",
+    "N2": "POST /api/auth/login",
+    "N3": "POST /api/auth/logout",
+    "N4": "GET /api/cuentas/me",
+    "N5": "PUT /api/cuentas/me",
+    "N6": "GET /api/cuentas/me/saldo",
+    "N7": "POST /api/cuentas/me/cierre",
+    "N8": "POST /api/transferencias",
+    "N9": "GET /api/transferencias/comision",
 }
 
 _etiquetas: dict[str, set[str]] = {}

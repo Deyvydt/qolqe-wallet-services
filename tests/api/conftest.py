@@ -38,7 +38,10 @@ def ctx():
 
 def _headers(cliente, ctx):
     """Inicia sesión en cada llamada: así el token siempre es válido aunque movamos el reloj."""
-    celular, pin = ctx["credenciales"]
+    return _login(cliente, *ctx["credenciales"])
+
+
+def _login(cliente, celular, pin):
     r = cliente.post("/api/auth/login", json={"celular": celular, "pin": pin})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
@@ -525,3 +528,114 @@ def verificar_en_lista(cliente, ctx, alias, ya_no):
 def verificar_anotada_existe(cliente, ctx, celular, pin):
     ctx["credenciales"] = (celular, pin)
     assert ctx["afiliacion_id"] in [a["id"] for a in _afiliaciones(cliente, ctx)]
+
+
+# ---------------------------------------------------------------- núcleo común (N1..N9, features/api/nucleo_comun.feature)
+
+@when(parsers.re(r'envío "(?P<metodo>[A-Z]+)" a "(?P<ruta>[^"]*)" sin token con el cuerpo (?P<cuerpo>.+)$'))
+def enviar_sin_token_con_cuerpo(cliente, ctx, metodo, ruta, cuerpo):
+    _pedir(cliente, ctx, metodo, ruta, cuerpo, headers={})
+
+
+@given(parsers.re(r'que intenté iniciar sesión (?P<n>\d+) veces con celular "(?P<celular>[^"]+)" y PIN "(?P<pin>[^"]+)"$'))
+def intentar_login(cliente, n, celular, pin):
+    for _ in range(int(n)):
+        cliente.post("/api/auth/login", json={"celular": celular, "pin": pin})
+
+
+@given(parsers.parse("que pasaron {minutos:d} minutos"))
+def pasar_minutos(cliente, minutos):
+    assert cliente.put("/api/pruebas/reloj", json={"avanzar_minutos": minutos}).status_code == 200
+
+
+@when("cierro sesión con mi token")
+def cerrar_sesion(cliente, ctx):
+    ctx["token"] = _headers(cliente, ctx)["Authorization"]
+    _pedir(cliente, ctx, "POST", "/api/auth/logout", headers={"Authorization": ctx["token"]})
+
+
+@when("cierro otra sesión")
+def cerrar_otra_sesion(cliente, ctx):
+    assert cliente.post("/api/auth/logout", headers=_headers(cliente, ctx)).status_code == 204
+
+
+@given(parsers.re(r'que transferí con el cuerpo (?P<cuerpo>.+)$'))
+def transferi(cliente, ctx, cuerpo):
+    assert _pedir(cliente, ctx, "POST", "/api/transferencias", cuerpo).status_code == 201, ctx["respuesta"].text
+
+
+@when(parsers.re(r'envío (?P<n>\d+) transferencias simultáneas con el cuerpo (?P<cuerpo>.+)$'))
+def transferencias_simultaneas(cliente, ctx, n, cuerpo):
+    n = int(n)
+    headers = [{**_headers(cliente, ctx), "Content-Type": "application/json"} for _ in range(n)]
+    barrera, respuestas = threading.Barrier(n), []
+
+    def transferir(h):
+        barrera.wait()  # todos salen al mismo tiempo
+        respuestas.append(TestClient(app).post("/api/transferencias", content=cuerpo, headers=h))
+
+    hilos = [threading.Thread(target=transferir, args=(h,)) for h in headers]
+    for h in hilos:
+        h.start()
+    for h in hilos:
+        h.join()
+    ctx["respuestas"] = respuestas
+
+
+@then(parsers.re(r'(?P<ok>\d+) transferencias son exitosas y (?P<ko>\d+) responden "(?P<codigo>[^"]+)"$'))
+def verificar_simultaneas(ctx, ok, ko, codigo):
+    obtenido = sorted("201" if r.status_code == 201 else r.json().get("codigo", str(r.status_code))
+                      for r in ctx["respuestas"])
+    assert obtenido == sorted(["201"] * int(ok) + [codigo] * int(ko)), obtenido
+
+
+@then(parsers.re(r'el campo "(?P<campo>[^"]+)" de la respuesta es (?:"(?P<valor>[^"]*)"|(?P<nulo>nulo))$'))
+def verificar_campo(ctx, campo, valor, nulo):
+    dato = ctx["respuesta"].json()
+    for parte in campo.split("."):  # "destinatario.cci" → dato["destinatario"]["cci"]
+        dato = dato[parte]
+    assert (dato is None) if nulo else str(dato) == valor, f"{campo} = {dato!r}"
+
+
+@then(parsers.re(r'la respuesta no tiene los campos "(?P<campos>[^"]+)"$'))
+def verificar_campos_ausentes(ctx, campos):
+    sobran = [c for c in campos.split(", ") if c in ctx["respuesta"].json()]
+    assert not sobran, f"La respuesta expone {sobran}"
+
+
+@then(parsers.re(r'el mensaje de error es "(?P<mensaje>[^"]+)"$'))
+def verificar_mensaje(ctx, mensaje):
+    assert ctx["respuesta"].json()["detail"] == mensaje, ctx["respuesta"].text
+
+
+@then(parsers.re(r'el celular "(?P<celular>[^"]+)" recibió un SMS que dice "(?P<texto>[^"]+)"$'))
+def verificar_sms_de(cliente, celular, texto):
+    mensajes = [n["mensaje"] for n in cliente.get("/api/pruebas/notificaciones", params={"celular": celular}).json()]
+    assert any(texto in m for m in mensajes), mensajes
+
+
+@then(parsers.re(r'el saldo de "(?P<celular>[^"]+)" con PIN "(?P<pin>[^"]+)" es "(?P<saldo>[^"]+)"$'))
+def verificar_saldo_de(cliente, celular, pin, saldo):
+    assert cliente.get("/api/cuentas/me/saldo", headers=_login(cliente, celular, pin)).json()["saldo"] == saldo
+
+
+@then(parsers.re(r'el movimiento de la transferencia aparece para "(?P<celular>[^"]+)" con PIN "(?P<pin>[^"]+)"$'))
+def verificar_movimiento_de(cliente, ctx, celular, pin):
+    """RN-10: el mismo código de operación aparece en la cuenta de origen y en la de destino."""
+    codigo = ctx["respuesta"].json()["codigo_operacion"]
+    for h in (_headers(cliente, ctx), _login(cliente, celular, pin)):
+        r = cliente.get(f"/api/movimientos/{codigo}", headers=h)
+        assert r.status_code == 200 and r.json()["codigo_operacion"] == codigo, r.text
+
+
+@then(parsers.re(r'al usar el token guardado en "(?P<ruta>[^"]+)" responde (?P<estado>\d+)$'))
+def verificar_token_guardado(cliente, ctx, ruta, estado):
+    r = cliente.get(ruta, headers={"Authorization": ctx["token"]})
+    assert r.status_code == int(estado), r.text
+
+
+@then(parsers.re(r'al iniciar sesión con celular "(?P<celular>[^"]+)" y PIN "(?P<pin>[^"]+)" '
+                 r'responde (?P<estado>\d+) "(?P<codigo>[^"]+)"$'))
+def verificar_login(cliente, celular, pin, estado, codigo):
+    r = cliente.post("/api/auth/login", json={"celular": celular, "pin": pin})
+    assert (r.status_code, r.json()["codigo"]) == (int(estado), codigo), r.text
