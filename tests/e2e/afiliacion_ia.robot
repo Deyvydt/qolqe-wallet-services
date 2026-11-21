@@ -15,9 +15,7 @@ Ana afilia un servicio de agua
     Iniciar Sesion    987654321    4826
     Deberia Estar En Inicio
     Ir A Pagar Servicios
-    Select Options By    css=[data-testid="select-afiliacion-empresa"]    value    AGUA
-    Fill Text    css=[data-testid="input-afiliacion-suministro"]    20000004
-    Fill Text    css=[data-testid="input-afiliacion-alias"]    Agua mamá
-    Click    css=[data-testid="boton-afiliar"]
-    Get Text    css=[data-testid="lista-afiliaciones"]    contains    Agua mamá
-    Get Text    css=[data-testid="contador-afiliaciones"]    contains    4 de 8
+    # Localizadores movidos al Page Object ServiciosPage (antes estaban crudos aquí).
+    Afiliar Servicio    AGUA    20000004    Agua mamá
+    La Lista De Afiliaciones Deberia Contener    Agua mamá
+    El Contador De Afiliaciones Deberia Ser    4 de 8
