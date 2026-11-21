@@ -2,13 +2,26 @@
 # CUÁNDO CORRE (eventos):
 #   - en cada push a main            → integración continua: nadie tiene que acordarse de probar
 #   - en cada pull request hacia main → quality gate: si algo sale rojo, el PR no se puede fusionar
-#   - a mano (botón "Run workflow")   → elegir qué suite correr: todas, solo api o solo web
-# CÓMO ESTÁ ARMADO: este archivo solo ORQUESTA. El trabajo lo hacen dos workflows reutilizables:
-#   _api.yml  → pruebas de API (pytest-bdd) + prueba de contrato (Schemathesis)
-#   _web.yml  → pruebas web E2E (Robot Framework + Browser)
-#   y el job "reportes" publica toda la evidencia en GitHub Pages (solo en main).
-# ORDEN (fail fast: lo rápido y barato primero):  api ──► web ──► reportes
-#   Si api falla, web se omite (skipped): no se gasta en lo caro si ya falló lo barato.
+#   - a mano (botón "Run workflow")   → elegir suite (todas/api/web), repeticiones y evidencia
+# CÓMO ESTÁ ARMADO: este archivo solo ORQUESTA; el trabajo lo hacen workflows reutilizables.
+#
+#   contrato ─┬─► api ──────────┐
+#             ├─► web ──────────┼─► quality-gate ─► reportes ─► publicar (solo main)
+#             └─► rendimiento ──┘        triaje-ia ──┘
+#
+#   1. contrato     (_contrato.yml)   PRIMERO: valida el contrato OpenAPI con Schemathesis. Si la API
+#                                     ya incumple su contrato no se gasta en lo demás (fail fast).
+#   2. api          (_api.yml)        escenarios Gherkin funcionales y técnicos de E1..E10 (pytest-bdd).
+#   3. web          (_web.yml)        escenarios E2E en .feature (Robot + Browser), N veces seguidas.
+#   4. rendimiento  (_rendimiento.yml) k6 "humo" (~1 min): umbrales de latencia e integridad del dinero.
+#      api, web y rendimiento corren EN PARALELO: son independientes entre sí.
+#   5. quality-gate   decide con criterios explícitos (tabla en el resumen del run); es el check
+#                     que protege main.
+#   6. triaje-ia      agente de IA que clasifica las fallas (defecto real / prueba frágil / entorno).
+#                     Nunca bloquea: orienta, no decide.
+#   7. reportes       ÚLTIMO job: junta todo (matriz endpoint×tipo, trazabilidad, triaje), sube la
+#                     ejecución a Qase y arma el sitio. Corre SIEMPRE, también si algo falló.
+#   8. publicar       publica el sitio en GitHub Pages (solo en main).
 name: Pruebas G2
 
 on:
@@ -28,6 +41,11 @@ on:
         type: choice
         options: ["1", "3"]
         default: "3"
+      evidencia:
+        description: "Reporte web CON evidencia (capturas de pantalla) o SIN evidencia (más liviano)"
+        type: choice
+        options: ["con", "sin"]
+        default: "con"
 
 # Si llega un push nuevo a la misma rama, se cancela el run anterior (no tiene sentido terminarlo).
 concurrency:
@@ -38,80 +56,231 @@ permissions:
   contents: read
 
 jobs:
+  contrato:
+    name: Contrato
+    uses: ./.github/workflows/_contrato.yml
+
   api:
     name: API
-    # En push y PR "inputs.suite" está vacío, así que corre siempre.
-    if: inputs.suite != 'web'
+    needs: contrato
+    if: ${{ !cancelled() && needs.contrato.result == 'success' && inputs.suite != 'web' }}
     uses: ./.github/workflows/_api.yml
 
   web:
     name: Web
-    needs: api
-    # Corre si la API pasó, o si se pidió "solo web" (entonces la API queda omitida).
-    if: >-
-      !cancelled() && inputs.suite != 'api' &&
-      (needs.api.result == 'success' || needs.api.result == 'skipped')
+    needs: contrato
+    if: ${{ !cancelled() && needs.contrato.result == 'success' && inputs.suite != 'api' }}
     uses: ./.github/workflows/_web.yml
     with:
       # En push/PR se corre 3 veces seguidas: así cada run demuestra que la suite NO es frágil.
       repeticiones: ${{ fromJSON(inputs.repeticiones || '3') }}
+      evidencia: ${{ inputs.evidencia || 'con' }}
 
-  reportes:
-    name: Publicar reportes
-    needs: [api, web]
-    # Solo en main y solo si nada falló (lo omitido por "solo api/web" no bloquea).
-    if: >-
-      !cancelled() && github.ref == 'refs/heads/main' &&
-      !contains(needs.*.result, 'failure')
+  rendimiento:
+    name: Rendimiento
+    needs: contrato
+    if: ${{ !cancelled() && needs.contrato.result == 'success' && (inputs.suite == '' || inputs.suite == 'todas') }}
+    uses: ./.github/workflows/_rendimiento.yml
+
+  quality-gate:
+    name: Quality gate
+    needs: [contrato, api, web, rendimiento]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
+    steps:
+      - name: Evaluar los criterios de calidad
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          criterios = [
+            ("contrato",     "Contrato OpenAPI (Schemathesis)", "0 respuestas 5xx y cada validación con la respuesta correcta"),
+            ("api",          "API funcional + técnica",         "0 fallos nuevos (los defectos DEF-01..04 están como xfail estricto)"),
+            ("web",          "Web E2E (Gherkin)",               "todas las ejecuciones seguidas en verde (3 de 3)"),
+            ("rendimiento",  "Rendimiento (k6 humo)",           "p95 consultas < 800 ms, p95 dinero < 1 500 ms, errores < 1 %, dinero íntegro"),
+          ]
+          icono = {"success": "✅ aprobado", "skipped": "⏭️ no aplica", "failure": "❌ FALLÓ", "cancelled": "⚠️ cancelado"}
+          filas, rojo = [], False
+          for clave, nombre, regla in criterios:
+              r = needs.get(clave, {}).get("result", "skipped")
+              rojo |= r in ("failure", "cancelled")
+              filas.append(f"| {nombre} | {regla} | {icono.get(r, r)} |")
+          # contrato en rojo => api/web/rendimiento quedan 'skipped' y NO deben dar falso verde.
+          if needs.get("contrato", {}).get("result") != "success":
+              rojo = True
+          texto = "## Quality gate\n\n| Criterio | Umbral | Resultado |\n|---|---|---|\n" + "\n".join(filas)
+          texto += "\n\n" + ("**Resultado: ❌ el cambio NO cumple los criterios de calidad.**" if rojo else "**Resultado: ✅ el cambio cumple todos los criterios de calidad.**") + "\n"
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8").write(texto)
+          print(texto)
+          sys.exit(1 if rojo else 0)
+          PY
+
+  triaje-ia:
+    name: Triaje de fallas (IA)
+    needs: [contrato, api, web, rendimiento]
+    if: ${{ !cancelled() }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
+      models: read
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2   # para que la herramienta ver_diff_commit (git show HEAD) tenga el commit
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Descargar los reportes de la API
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-api
+          path: reportes/api
+
+      - name: Descargar los reportes de contrato
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-contrato
+          path: reportes/contrato
+
+      - name: Descargar los reportes web
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-web
+          path: reportes/web
+
+      - name: Triaje de las fallas con el agente IA (no bloquea)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIAJE_MODELO: openai/gpt-4.1-mini
+        run: >-
+          python .github/scripts/triaje_ia.py
+          reportes/api/junit.xml reportes/contrato/junit.xml reportes/web/output.xml
+          --json reportes/triaje/triaje.json
+
+      - name: Guardar el triaje como artefacto
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: triaje-ia
+          path: reportes/triaje
+          if-no-files-found: ignore
+          retention-days: 30
+
+  reportes:
+    name: Reportes
+    # ÚLTIMO job de las pruebas: corre SIEMPRE (también si hubo fallas) para que la evidencia
+    # quede visible al final de cada ejecución, con o sin evidencia gráfica según el input.
+    needs: [quality-gate, triaje-ia]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Cada job dejó sus reportes como artefacto; aquí se juntan. (Si se pidió "solo api" o
+      # "solo web", falta alguno: continue-on-error evita que eso detenga la publicación.)
+      - name: Descargar los reportes de contrato
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-contrato
+          path: reportes/contrato
+
+      - name: Descargar los reportes de la API
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-api
+          path: reportes/api
+
+      - name: Descargar los reportes web
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-web
+          path: reportes/web
+
+      - name: Descargar los resultados de rendimiento
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-rendimiento
+          path: reportes/rendimiento
+
+      - name: Descargar el triaje de la IA
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: triaje-ia
+          path: reportes/triaje
+
+      - name: Armar el sitio (reportes + matriz de trazabilidad + portada)
+        run: |
+          mkdir -p sitio
+          for d in api contrato web rendimiento triaje; do
+            [ -d reportes/$d ] && cp -r reportes/$d sitio/$d || true
+          done
+          python .github/scripts/trazabilidad.py \
+            --api reportes/api/junit.xml reportes/contrato/junit.xml --web reportes/web/output.xml \
+            --salida-md sitio/trazabilidad.md --salida-html sitio/trazabilidad.html --summary
+          python .github/scripts/portada.py --sitio sitio
+
+      # TRAZABILIDAD ENTRE EJECUCIONES: cada run se sube a Qase como un "test run" nuevo; los
+      # casos se reutilizan, así que Qase acumula el historial de todas las ejecuciones.
+      - name: Subir esta ejecución a Qase (gestión de casos de prueba)
+        continue-on-error: true
+        env:
+          QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+        run: >-
+          python .github/scripts/qase_subir.py
+          --junit reportes/api/junit.xml reportes/contrato/junit.xml
+          --robot reportes/web/output.xml
+          --proyecto QOLQE
+          --titulo-run "Run #${{ github.run_number }} · ${{ github.ref_name }}"
+          --commit "${{ github.sha }}"
+          --url-run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Empaquetar el sitio para GitHub Pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: sitio
+
+      - name: Guardar el sitio como artefacto (también en PR y ramas)
+        uses: actions/upload-artifact@v7
+        with:
+          name: sitio-reportes
+          path: sitio
+          retention-days: 30
+
+  publicar:
+    name: Publicar en GitHub Pages
+    needs: [quality-gate, reportes]
+    # Solo en main y solo si el quality gate aprobó (nunca se publica un estado en rojo).
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.quality-gate.result == 'success' && needs.reportes.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
       pages: write      # para publicar en GitHub Pages
       id-token: write   # GitHub Pages lo exige para verificar quién publica
     environment:
       name: github-pages
       url: ${{ steps.publicar.outputs.page_url }}
     steps:
-      - name: Descargar el código
-        uses: actions/checkout@v5
-
-      - name: Instalar Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      # Cada job dejó sus reportes como artefacto; aquí se juntan. (Si se pidió "solo api" o
-      # "solo web", falta uno: continue-on-error evita que eso detenga la publicación.)
-      - name: Descargar los reportes de la API (trae api/ y contrato/)
-        uses: actions/download-artifact@v5
-        continue-on-error: true
-        with:
-          name: reportes-api
-          path: reportes
-
-      - name: Descargar los reportes web
-        uses: actions/download-artifact@v5
-        continue-on-error: true
-        with:
-          name: reportes-web
-          path: reportes/web
-
-      - name: Armar el sitio (reportes + matriz de trazabilidad + portada)
-        run: |
-          mkdir -p sitio
-          [ -d reportes/api ] && cp -r reportes/api sitio/api
-          [ -d reportes/contrato ] && cp -r reportes/contrato sitio/contrato
-          [ -d reportes/web ] && cp -r reportes/web sitio/web
-          python .github/scripts/trazabilidad.py \
-            --api reportes/api/junit.xml --web reportes/web/output.xml \
-            --salida-md sitio/trazabilidad.md --salida-html sitio/trazabilidad.html --summary
-          python .github/scripts/portada.py --sitio sitio
-
-      - name: Empaquetar el sitio para GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: sitio
-
       - name: Publicar en GitHub Pages
         id: publicar
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

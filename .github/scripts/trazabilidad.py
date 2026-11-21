@@ -589,14 +589,16 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="Genera la matriz de trazabilidad HU → caso → nivel → resultado.")
-    p.add_argument("--api", help="JUnit XML de pytest (p. ej. reportes/api/junit.xml)")
+    p.add_argument("--api", nargs="*", default=[], help="uno o más JUnit XML de pytest (api y contrato), p. ej. reportes/api/junit.xml reportes/contrato/junit.xml")
     p.add_argument("--web", help="output.xml de Robot Framework (p. ej. reportes/web/output.xml)")
     p.add_argument("--salida-md", help="archivo Markdown a generar (p. ej. docs/trazabilidad.md)")
     p.add_argument("--salida-html", help="archivo HTML a generar (p. ej. sitio/trazabilidad.html)")
     p.add_argument("--summary", action="store_true", help="agrega la matriz al resumen del run de GitHub")
     args = p.parse_args()
 
-    _, casos_api = leer_reporte(args.api)
+    casos_api = []
+    for ruta in args.api:
+        casos_api += leer_reporte(ruta)[1] or []
     _, casos_web = leer_reporte(args.web)
     ctx = contexto_run()
 

@@ -1,0 +1,68 @@
+# QUÉ ES: workflow REUTILIZABLE con la prueba de rendimiento "humo" (k6) como QUALITY GATE.
+# POR QUÉ "HUMO" Y NO TODA LA BATERÍA: carga (13 min), pico (16 min), estrés (25 min) y
+#   resistencia (33 min) se ejecutan a mano con ejecutar.py (sus resultados están en
+#   tests/performance/resultados/). En CI corre solo un humo de ~1 min con 2 usuarios: detecta
+#   regresiones gruesas de latencia o de integridad del dinero en cada cambio.
+# QUALITY GATE: umbrales k6 (p95 consultas < 800 ms, p95 dinero < 1 500 ms, errores técnicos < 1 %)
+#   e integridad del dinero (ningún descuadre, ningún código repetido, ninguna deuda pagada 2 veces).
+name: Rendimiento humo (reutilizable)
+
+on:
+  workflow_call:
+
+jobs:
+  rendimiento:
+    name: Rendimiento · k6 humo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QOLQE_BD: datos/perf.db
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt psutil matplotlib
+
+      - name: Instalar k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Levantar Qolqe en segundo plano
+        run: |
+          nohup uvicorn qolqe.main:app --port 8000 --no-access-log > uvicorn.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/api/salud && exit 0
+            sleep 2
+          done
+          echo "Qolqe no levantó"; cat uvicorn.log; exit 1
+
+      - name: Ejecutar el humo (k6, ~1 min)
+        run: python tests/performance/ejecutar.py humo
+
+      - name: Evaluar el quality gate de rendimiento
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          a = json.load(open("tests/performance/resultados/humo/analisis.json", encoding="utf-8"))
+          ok_umbrales = a["umbrales_k6_cumplidos"]
+          ok_dinero = a["integridad_dinero"]["ok"]
+          linea = f"| Umbrales k6 | {'✅' if ok_umbrales else '❌'} |\n| Integridad del dinero | {'✅' if ok_dinero else '❌'} |"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("### Rendimiento · humo k6\n\n| Criterio | Resultado |\n|---|---|\n" + linea + "\n")
+          sys.exit(0 if ok_umbrales and ok_dinero else 1)
+          PY
+
+      - name: Guardar los resultados como artefacto
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-rendimiento
+          path: tests/performance/resultados/humo
+          retention-days: 30
