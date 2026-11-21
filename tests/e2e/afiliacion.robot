@@ -1,5 +1,5 @@
 *** Settings ***
-Documentation     Caso generado con IA a partir de HU-G2-03 y revisado por el equipo.
+Documentation     CP-W03 · Afiliar un servicio (HU-G2-03).
 Resource          resources/Comun.resource
 Resource          pages/LoginPage.resource
 Resource          pages/ServiciosPage.resource
@@ -9,8 +9,8 @@ Test Teardown     Cerrar Navegador
 
 *** Test Cases ***
 Ana afilia un servicio de agua
-    [Documentation]    HU-G2-03. Generado con IA; corregido por el equipo (ver README).
-    [Tags]    G2    e2e    ia    HU-G2-03    CA1    CP-W03    defecto    DEF-06
+    [Documentation]    HU-G2-03: Ana afilia AGUA con suministro 20000004 y la ve en su lista.
+    [Tags]    G2    e2e    HU-G2-03    CA1    CP-W03    defecto    DEF-06
     Abrir Pagina De Login
     Iniciar Sesion    987654321    4826
     Deberia Estar En Inicio

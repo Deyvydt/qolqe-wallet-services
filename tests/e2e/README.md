@@ -3,7 +3,7 @@
 Cobertura web de Qolqe por la interfaz (navegador real, Playwright):
 
 - **Escenarios BDD en Gherkin** (`features/e2e/*.feature`, obligatorio): núcleo común (HU-N-01 a HU-N-09) y G2 (HU-G2-01 a HU-G2-07).
-- **Casos `.robot`** de la entrega anterior (`tests/e2e/*.robot`): CP-W01 (pagar luz), CP-W02 (pagar agua, generado con IA) y CP-W03 (afiliar, generado con IA).
+- **Casos `.robot`** de la entrega anterior (`tests/e2e/*.robot`): CP-W01 (pagar luz), CP-W02 (pagar agua) y CP-W03 (afiliar).
 
 ## Herramienta: `robotframework-gherkin-parser`
 
@@ -28,8 +28,8 @@ features/e2e/                       BDD E2E (lo que se prueba, en Gherkin)
     └── g2.resource                 Frase Gherkin → acciones de ServiciosPage
 tests/e2e/
 ├── pago_servicios.robot            CP-W01 en estilo Given/When/Then (.robot)
-├── afiliacion_ia.robot             CP-W03 generado con IA (localizadores ya movidos a ServiciosPage)
-├── pago_agua_ia.robot              CP-W02 generado en vivo con Claude Code + rf-mcp
+├── afiliacion.robot                CP-W03 afiliar un servicio (localizadores en ServiciosPage)
+├── pago_agua.robot                 CP-W02 pagar un recibo de agua
 ├── pages/                          ¿CÓMO se usa cada pantalla? (localizadores data-testid + acciones)
 │   ├── LoginPage.resource          /login (+ login por API para precondiciones)
 │   ├── RegistroPage.resource       /registro
@@ -107,14 +107,6 @@ Los escenarios con `@defecto @DEF-0X` esperan el comportamiento **correcto** seg
 | **DEF-06 (nuevo)** | *Ana inicia sesión…*, *Un visitante crea su cuenta…*, *La lista de afiliaciones se actualiza al instante…* | La API responde **antes** de guardar (commit) los cambios. Justo después de un login, la primera petición puede recibir 401 y la app expulsa al usuario a `/login?motivo=sesion`; tras desafiliar o pagar, la lista se repinta con datos viejos. Es intermitente |
 
 Para que el resto de escenarios sea estable sin esconder DEF-06: las **precondiciones** (`Dado que Ana inició sesión`) inician sesión por API y esperan a que la sesión exista (`LoginPage.Iniciar Sesion Por API`), y lo guardado tras una acción se verifica **recargando la página** (`Comun.Comprobar`: hasta 5 recargas, porque el commit llega después de la respuesta). Los escenarios cuyo objetivo es el login o el refresco inmediato siguen haciéndolo por la pantalla y llevan `@DEF-06`.
-
-## Capacidad de IA
-
-`afiliacion_ia.robot` se generó con un asistente de IA a partir de este pedido:
-
-> Este es el Page Object `ServiciosPage.resource` de Robot Framework con Browser Library. Escribe un caso de prueba nuevo para la historia HU-G2-03: Ana afilia el servicio AGUA con suministro 20000004 y alias "Agua mamá", y verifica que aparece en la lista de afiliaciones. Usa los data-testid `select-afiliacion-empresa`, `input-afiliacion-suministro`, `input-afiliacion-alias`, `boton-afiliar` y `lista-afiliaciones`. Reutiliza las keywords existentes.
-
-Lo que corregimos: la primera versión era **frágil** porque escribía antes de que la pantalla terminara de cargar (se arregló en `Ir A Pagar Servicios`). En esta entrega sus localizadores crudos se movieron al Page Object (`Afiliar Servicio`, `La Lista De Afiliaciones Deberia Contener`, `El Contador De Afiliaciones Deberia Ser`) sin cambiar lo que verifica.
 
 ## Decisiones de diseño
 
