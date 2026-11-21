@@ -173,7 +173,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python .github/scripts/validar_triaje.py --destino ci
+        run: |
+          mkdir -p reportes/triaje
+          python .github/scripts/validar_triaje.py | tee reportes/triaje/validacion.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar el triaje como artefacto
         if: ${{ !cancelled() }}

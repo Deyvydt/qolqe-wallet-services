@@ -22,7 +22,7 @@ Casos etiquetados: 10 (`tests/triaje/casos_etiquetados.json`). Modelo: `claude-h
 | C09 | prueba_fragil / — | defecto_real ❌ / — ✅ | prueba_fragil ✅ / — ✅ | leer_defectos | 0.85 |
 | C10 | defecto_real / — | defecto_real ✅ / — ✅ | defecto_real ✅ / — ✅ | leer_defectos, leer_fragmento_codigo | 0.60 |
 
-> Las tablas de arriba las genera `python .github/scripts/validar_triaje.py --destino docs`.
+> Las tablas de arriba las genera `python .github/scripts/validar_triaje.py > reportes/triaje/validacion.md`.
 > Lo que sigue es el análisis.
 
 ## Resultado de la validación con el modelo

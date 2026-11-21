@@ -6,7 +6,7 @@ PARA QUÉ:
   Escribe una tabla caso por caso en Markdown.
 
 CÓMO SE USA (desde la raíz del repo):
-  ANTHROPIC_API_KEY=... python .github/scripts/validar_triaje.py --destino docs   (o GITHUB_TOKEN para GitHub Models)
+  ANTHROPIC_API_KEY=... python .github/scripts/validar_triaje.py > reportes/triaje/validacion.md   (o GITHUB_TOKEN para GitHub Models)
   Sin GITHUB_TOKEN solo evalúa la línea base (lo dice en el reporte; no inventa cifras).
 """
 import argparse
@@ -36,8 +36,7 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser()
-    p.add_argument("--destino", choices=("docs", "ci"), help="docs = docs/ia/validacion_triaje.md; ci = reportes/triaje/ (si no, pantalla)")
-    args = p.parse_args()
+    p.parse_args()
 
     casos = json.loads(CASOS.read_text(encoding="utf-8"))["casos"]
     base = [clasificar_offline(c) for c in casos]
@@ -67,21 +66,7 @@ def main():
         out.append(f"| {c['id']} | {esp} | {reg} | {iat} | {herr} | {conf} |")
     texto = "\n".join(out) + "\n"
 
-    destino_json = None
-    if args.destino:
-        # Rutas literales: el argumento solo elige entre ellas, no forma ninguna ruta.
-        if args.destino == "docs":
-            salida, destino_json = Path("docs/ia/validacion_triaje.md"), None
-        else:
-            salida, destino_json = Path("reportes/triaje/validacion.md"), Path("reportes/triaje/validacion.json")
-        salida.parent.mkdir(parents=True, exist_ok=True)
-        previo = salida.read_text(encoding="utf-8") if salida.is_file() else ""
-        marca = previo.find("\n> Las tablas de arriba")  # el análisis escrito a mano se conserva
-        salida.write_text(texto + (previo[marca:] if marca >= 0 else ""), encoding="utf-8")
     print(texto)
-    if args.destino and destino_json:
-        destino_json.write_text(json.dumps({"base": base, "ia": ia, "aviso": aviso}, ensure_ascii=False, indent=2),
-                                   encoding="utf-8")
     return 0
 
 

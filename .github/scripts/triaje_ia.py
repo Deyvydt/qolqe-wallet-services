@@ -285,7 +285,7 @@ def _llamar_claude(sistema, mensajes, clave):
     """Una vuelta de la Messages API de Anthropic con las mismas herramientas del agente."""
     herramientas = [{"name": h["function"]["name"], "description": h["function"]["description"],
                      "input_schema": h["function"]["parameters"]} for h in ESQUEMA_HERRAMIENTAS]
-    cuerpo = json.dumps({"model": MODELO, "max_tokens": 800, "system": sistema,
+    cuerpo = json.dumps({"model": MODELO, "max_tokens": 2500, "system": sistema,
                          "messages": mensajes, "tools": herramientas}).encode()
     for intento in range(2):
         req = urllib.request.Request(ENDPOINT_ANTHROPIC, data=cuerpo, method="POST", headers={
