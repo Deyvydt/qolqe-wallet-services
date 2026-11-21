@@ -32,6 +32,7 @@ from trazabilidad import contexto_run, leer_reporte, nombre_caso
 API = os.environ.get("QASE_API_URL", "https://api.qase.io/v1")  # se cambia solo en las pruebas unitarias
 ESPERA = 2.0  # segundos base entre reintentos (crece al doble); las pruebas lo ponen en 0
 INTENTOS = 4
+LOTE = 100  # resultados por llamada bulk (el máximo de Qase es 200)
 
 # Suites ya creadas en el proyecto QOLQE de Qase (id → nombre en la interfaz).
 SUITE_API_FUNCIONAL = 1       # 'API - Funcional'
@@ -179,9 +180,12 @@ def subir(qase, codigo, casos, titulo_run, commit, url_run):
         "cases": sorted({ids[titulo(c)] for c in casos}),
         "is_autotest": True,
     })["id"]
-    qase.pedir("POST", f"/result/{codigo}/{run_id}/bulk",
-               {"results": [datos_resultado(c, ids[titulo(c)]) for c in casos]})
-    qase.pedir("POST", f"/run/{codigo}/{run_id}/complete")
+    resultados = [datos_resultado(c, ids[titulo(c)]) for c in casos]
+    try:
+        for i in range(0, len(resultados), LOTE):  # Qase rechaza más de 200 resultados por llamada (HTTP 413)
+            qase.pedir("POST", f"/result/{codigo}/{run_id}/bulk", {"results": resultados[i:i + LOTE]})
+    finally:  # un run abierto agota el cupo de runs activos del plan gratis
+        qase.pedir("POST", f"/run/{codigo}/{run_id}/complete")
     return run_id
 
 
